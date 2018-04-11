@@ -1,0 +1,68 @@
+#!/bin/sh
+set -e
+
+COPTFLAGS=$(cat <<'EOF'
+-Os -fvisibility=hidden -mpreferred-stack-boundary=2 -fwhole-program
+-ffast-math -funsafe-math-optimizations -fno-stack-protector -fomit-frame-pointer
+-fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables
+EOF
+)
+CXXOPTFLAGS=$(cat <<EOF
+$CXXOPTFLAGS
+-fno-rtti -fno-enforce-eh-specs -fnothrow-opt -fno-use-cxa-get-exception-ptr
+-fno-implicit-templates -fno-threadsafe-statics -fno-use-cxa-atexit
+EOF
+)
+
+CC="${CC:-cc}"
+CXX="${CXX:-c++}"
+CFLAGS="-Wall -Wextra -Wpedantic -std=c99 $COPTFLAGS -nostartfiles -fno-PIC"
+CXXFLAGS="-Wall -Wextra -Wpedantic -std=c++11 $CXXOPTFLAGS -nostartfiles -fno-PIC"
+ASFLAGS="-f elf -I ldr/"
+LDFLAGS="--oformat=binary -T ldr/link.ld"
+
+mkdir -p bin
+rm -rf obj
+mkdir -p obj
+
+cleared=
+mksym_args=
+files=
+symfiles=
+output=s.out
+i=1
+
+add_out() {
+	out="obj/$i"
+	files="$files $out"
+	i=$((i+1))
+}
+
+add_syms() {
+	readelf -s "$1" | grep UND | sed 1d | awk '{ print $8 }' > $1.syms
+	symfiles="$symfiles $1.syms"
+}
+
+for a; do
+	if test -z "$cleared"; then
+		set --; cleared=1
+	fi
+	case "$a" in
+	-o)  output="$a";;
+	-l*) mksym_args="$mksym_args $a";;
+	-*)  set -- "$@" "$a";;
+	*.c)
+		add_out
+		$CC $CFLAGS "$@" -c "$a" -o "$out"
+		add_syms "$out";;
+	*.cxx|*.cc|*.cpp)
+		add_out
+		$CXX $CXXFLAGS "$@" -c "$a" -o "$out"
+		add_syms "$out";;
+	*) printf "not sure what to do with input file: %s, bailing\n" "$a" &>2; exit 1;;
+	esac
+done
+
+./ldr/mksyms $mksym_args $(cat $symfiles) > obj/$output.syms.s
+nasm $ASFLAGS obj/$output.syms.s -o obj/$output.header.o
+ld $LDFLAGS obj/$output.header.o $files -o bin/$output

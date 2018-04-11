@@ -1,0 +1,80 @@
+#!/usr/bin/env python3
+import sys
+import os.path
+import subprocess
+import itertools
+import argparse
+
+
+def hash_djb2(s):
+    h = 5381
+    for c in s:
+        h = (h * 33 + ord(c)) & 0xFFFFFFFF
+    return h
+
+
+def output_x86(libraries):
+    shorts = { l: l.split('.', 1)[0].lower() for l in libraries }
+
+    print('%include "header.s"')
+    print('.dynamic.needed:')
+    for library in libraries:
+        print('dd 1')
+        print('dd (_symbols.{} - _symbols)'.format(shorts[library]))
+    print('.dynamic.end:')
+    print('_symbols:')
+    for library, symbols in libraries.items():
+        print('\t_symbols.{}: db "{}",0'.format(shorts[library], library))
+
+        for sym in symbols:
+            hash = hash_djb2(sym)
+            print("""
+\t\tglobal {name}
+\t\t{name}: db 0xE9
+\t\t  dd 0x{hash:x}
+""".strip('\n').format(name=sym, hash=hash))
+
+        print('\tdb 0')
+    print('db 0')
+    print('%include "loader.s"')
+
+
+def get_cc_paths():
+    output = subprocess.check_output(['cc', '-print-search-dirs'], stderr=subprocess.DEVNULL)
+    paths = {}
+    for entry in output.decode('utf-8').splitlines():
+        category, path = entry.split(': ', 1)
+        path = path.lstrip('=')
+        paths[category] = list(set(os.path.realpath(p) for p in path.split(':') if os.path.isdir(p)))
+    return paths
+
+def find_symbol(paths, libraries, symbol):
+    output = subprocess.check_output(['scanelf', '-B', '-F' '%s %S', '-s', '+{}'.format(symbol)] + paths, stderr=subprocess.DEVNULL)
+    for entry in output.decode('utf-8').splitlines():
+        sym, soname, path = entry.split(' ', 2)
+        if symbol in sym.split(',') and any(soname.startswith(l) for l in libraries):
+            return soname
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-a', '--architecture', default='x86', help='architecture to generate asm code for')
+    parser.add_argument('-l', '--library', metavar='LIB', default=['c'], action='append', help='libraries to link against')
+    parser.add_argument('symbols', metavar='SYM', nargs='+', help='symbol to search for')
+    args = parser.parse_args()
+
+    paths = get_cc_paths()
+    symbols = {}
+    libraries = ['lib{}.so'.format(l) for l in args.library]
+
+    for symbol in args.symbols:
+        library = find_symbol(paths['libraries'], libraries, symbol)
+        if not library:
+            sys.stderr.write('could not find symbol: {}\n'.format(symbol))
+            sys.exit(1)
+        symbols.setdefault(library, [])
+        symbols[library].append(symbol)
+
+    output_x86(symbols)
+
+if __name__ == '__main__':
+    main()
