@@ -58,13 +58,13 @@ def find_symbol(paths, libraries, symbol):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-a', '--architecture', default='x86', help='architecture to generate asm code for')
-    parser.add_argument('-l', '--library', metavar='LIB', default=['c'], action='append', help='libraries to link against')
-    parser.add_argument('symbols', metavar='SYM', nargs='+', help='symbol to search for')
+    parser.add_argument('-l', '--library', metavar='LIB', action='append', help='libraries to link against')
+    parser.add_argument('symbols', metavar='SYM', nargs='*', help='symbol to search for')
     args = parser.parse_args()
 
     paths = get_cc_paths()
     symbols = {}
-    libraries = ['lib{}.so'.format(l) for l in args.library]
+    libraries = ['lib{}'.format(l) for l in args.library or []]
 
     for symbol in args.symbols:
         library = find_symbol(paths['libraries'], libraries, symbol)

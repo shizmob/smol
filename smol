@@ -28,7 +28,7 @@ mkdir -p obj
 cleared=
 mksym_args=
 files=
-symfiles=
+symbols=
 output=s.out
 i=1
 
@@ -39,8 +39,8 @@ add_out() {
 }
 
 add_syms() {
-	readelf -s "$1" | grep UND | sed 1d | awk '{ print $8 }' > $1.syms
-	symfiles="$symfiles $1.syms"
+	local syms=$(readelf -s "$1" | grep -F UND | sed 1d | awk '{ print $8 }')
+	symbols="$symbols $syms"
 }
 
 for a; do
@@ -63,6 +63,6 @@ for a; do
 	esac
 done
 
-./ldr/mksyms $mksym_args $(cat $symfiles) > obj/$output.syms.s
+./ldr/mksyms $mksym_args $symbols > obj/$output.syms.s
 nasm $ASFLAGS obj/$output.syms.s -o obj/$output.header.o
 ld $LDFLAGS obj/$output.header.o $files -o bin/$output
