@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+
+import glob
 import sys
 import os.path
 import subprocess
@@ -40,19 +42,39 @@ def output_x86(libraries):
 
 
 def get_cc_paths():
-    output = subprocess.check_output(['cc', '-print-search-dirs'], stderr=subprocess.DEVNULL)
+    output = subprocess.check_output(['cc', '-print-search-dirs'],
+                                     stderr=subprocess.DEVNULL)
     paths = {}
     for entry in output.decode('utf-8').splitlines():
         category, path = entry.split(': ', 1)
         path = path.lstrip('=')
-        paths[category] = list(set(os.path.realpath(p) for p in path.split(':') if os.path.isdir(p)))
+        paths[category] = list(set(os.path.realpath(p) \
+                for p in path.split(':') if os.path.isdir(p)))
     return paths
 
-def find_symbol(paths, libraries, symbol):
-    output = subprocess.check_output(['scanelf', '-B', '-F' '%s %S', '-s', '+{}'.format(symbol)] + paths, stderr=subprocess.DEVNULL)
+def is_valid_elf(f):
+    with open(f, 'rb') as ff: return ff.read(4) == b'\x7FELF'
+
+def find_lib(spaths, wanted):
+    for p in spaths:
+        for f in glob.glob(glob.escape(p) + '/lib' + wanted + '.so*'):
+            if os.path.isfile(f) and is_valid_elf(f): return f
+        for f in glob.glob(glob.escape(p) + '/'    + wanted + '.so*'):
+            if os.path.isfile(f) and is_valid_elf(f): return f
+        #for f in glob.glob(glob.escape(p) + '/lib' + wanted + '.a' ): return f
+        #for f in glob.glob(glob.escape(p) + '/'    + wanted + '.a' ): return f
+
+    sys.stderr.write("E: couldn't find library '" + wanted + "'.")
+    sys.exit(1)
+
+def find_libs(spaths, wanted): return map(lambda l: find_lib(spaths, l), wanted)
+
+def find_symbol(libraries, libnames, symbol):
+    output = subprocess.check_output(['scanelf', '-B', '-F' '%s %S', '-s', \
+                '+{}'.format(symbol)] + libraries, stderr=subprocess.DEVNULL)
     for entry in output.decode('utf-8').splitlines():
         sym, soname, path = entry.split(' ', 2)
-        if symbol in sym.split(',') and any(soname.startswith(l) for l in libraries):
+        if symbol in sym.split(',') and any(soname.startswith('lib'+l) for l in libnames):
             return soname
 
 def main():
@@ -63,11 +85,14 @@ def main():
     args = parser.parse_args()
 
     paths = get_cc_paths()
+    libraries=paths['libraries']
+    libnames = args.library
+    libs = list(find_libs(libraries, libnames))
+    sys.stderr.write('libs='+str(libs)+'\n')
     symbols = {}
-    libraries = ['lib{}'.format(l) for l in args.library or []]
 
     for symbol in args.symbols:
-        library = find_symbol(paths['libraries'], libraries, symbol)
+        library = find_symbol(libs, libnames, symbol)
         if not library:
             sys.stderr.write('could not find symbol: {}\n'.format(symbol))
             sys.exit(1)
