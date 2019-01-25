@@ -10,7 +10,7 @@ SECTIONS {
   }
 
   .data : {
-     *(.data .data.* .bss .bss.* .tdata .tdata.* .tbss .tbss.*)
+     *(.data .data.* .tdata .tdata.* .bss .bss.* .tbss .tbss.*)
   }
 
   .dynamic : { *(.dynamic) } :all :dyn

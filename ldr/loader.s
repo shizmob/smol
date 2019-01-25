@@ -1,12 +1,13 @@
+; vim: set ft=nasm ts=8:
 [section .text]
 
 %define LM_NAME_OFFSET           0x4
 %define LM_NEXT_OFFSET           0xC
 %define LM_ADDR_OFFSET           0
 %define LM_INFO_OFFSET           0x20
-%define LM_NBUCKETS_OFFSET       0x178
-%define LM_GNU_BUCKETS_OFFSET    0x188
-%define LM_GNU_CHAIN_ZERO_OFFSET 0x18C
+%define LM_NBUCKETS_OFFSET       0x17c
+%define LM_GNU_BUCKETS_OFFSET    0x18c
+%define LM_GNU_CHAIN_ZERO_OFFSET 0x190
 
 %define DT_VALUE_OFFSET          0x4
 %define DYN_PTR_OFFSET           0x4
@@ -128,3 +129,4 @@ _start:
 
        call main
        int3
+

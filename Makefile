@@ -4,7 +4,7 @@ BINDIR = bin
 SRCDIR = src
 DATADIR = data
 
-COPTFLAGS=-Os -fvisibility=hidden -mpreferred-stack-boundary=2 -fwhole-program \
+COPTFLAGS=-Os -fvisibility=hidden -mpreferred-stack-boundary=3 -fwhole-program \
   -ffast-math -funsafe-math-optimizations -fno-stack-protector -fomit-frame-pointer \
   -fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables
 CXXOPTFLAGS=$(COPTFLAGS) \
@@ -14,7 +14,7 @@ CXXOPTFLAGS=$(COPTFLAGS) \
 ASFLAGS=-f elf -I $(LDRDIR)/
 CFLAGS=-Wall -Wextra -Wpedantic -std=c99 $(COPTFLAGS) -nostartfiles -fno-PIC
 CXXFLAGS=-Wall -Wextra -Wpedantic -std=c++11 $(CXXOPTFLAGS) -nostartfiles -fno-PIC
-LIBS=-lGL -ldl -lc
+LIBS=-lc
 LDFLAGS=--oformat=binary -T ldr/link.ld
 
 
@@ -29,7 +29,7 @@ clean:
 .SECONDARY:
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c
-	$(CC) $(CFLAGS) -c $^ -o $@
+	$(CC) -m32 $(CFLAGS) -c $^ -o $@
 
 $(OBJDIR)/%.o.syms: $(OBJDIR)/%.o
 	readelf -s $^ | grep UND | sed 1d | awk '{ print $$8 }' > $@
@@ -41,4 +41,4 @@ $(OBJDIR)/header.%.o: $(OBJDIR)/symbols.%.s $(LDRDIR)/header.s $(LDRDIR)/loader.
 	nasm $(ASFLAGS) $< -o $@
 
 $(BINDIR)/%: $(OBJDIR)/%.o $(OBJDIR)/header.%.o
-	$(LD) $(LDFLAGS) $^ -o $@
+	$(LD) -m elf_i386 $(LDFLAGS) $^ -o $@

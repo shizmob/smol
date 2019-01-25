@@ -1,3 +1,4 @@
+; vim: set ft=nasm:
 %define ORIGIN 0x400000
 
 extern _size
@@ -31,6 +32,7 @@ header:
         ; e_phentsize
         dw (.segments.load - .segments.dynamic)
 .segments:
+; TODO: .segments.interp
 .segments.dynamic:
         ; {e_phnum: 2, e_shentsize: 0}, p_type: 2 = PT_DYNAMIC
         dd 2
