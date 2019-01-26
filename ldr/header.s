@@ -32,7 +32,23 @@ header:
         ; e_phentsize
         dw (.segments.load - .segments.dynamic)
 .segments:
-; TODO: .segments.interp
+%ifdef USE_INTERP
+.segments.interp:
+        ; {e_phnum: 2, e_shentsize: 0}, p_type: 3 = PT_INTERP
+        dd 3
+        ; {e_shnum: <junk>, e_shstrnd: <junk>}, p_offset
+        dd (.interp - header)
+        ; p_vaddr
+        dd .interp
+        ; p_paddr
+        dd .interp
+        ; p_filesz
+        dd (.interp.end-.interp)
+        ; p_memsz
+        dd (.interp.end-.interp)
+        ; p_flags, p_align
+        dd 0,0
+%endif
 .segments.dynamic:
         ; {e_phnum: 2, e_shentsize: 0}, p_type: 2 = PT_DYNAMIC
         dd 2
@@ -66,6 +82,11 @@ header:
         ; p_align
         dd 0x1000
 .segments.end:
+%ifdef USE_INTERP
+.interp:
+    db "/lib/ld-linux.so.2",0
+.interp.end:
+%endif
 .dynamic:
 .dynamic.strtab:
         ; d_tag: 5 = DT_STRTAB
@@ -78,3 +99,4 @@ header:
         dd 6
         ; d_un.d_ptr
         dd 0
+
