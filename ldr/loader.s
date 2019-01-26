@@ -5,9 +5,13 @@
 %define LM_NEXT_OFFSET           0xC
 %define LM_ADDR_OFFSET           0
 %define LM_INFO_OFFSET           0x20
-%define LM_NBUCKETS_OFFSET       0x17c
-%define LM_GNU_BUCKETS_OFFSET    0x18c
-%define LM_GNU_CHAIN_ZERO_OFFSET 0x190
+
+; by default, use the offset 'correction' from glibc 2.28
+%define LM_ENTRY_OFFSET_BASE     340
+
+%define LM_NBUCKETS_OFFSET       0x178
+%define LM_GNU_BUCKETS_OFFSET    0x188
+%define LM_GNU_CHAIN_ZERO_OFFSET 0x18C
 
 %define DT_VALUE_OFFSET          0x4
 %define DYN_PTR_OFFSET           0x4
@@ -15,6 +19,8 @@
 %define DT_SYMTAB                0x6
 %define DT_SYMSIZE_SHIFT         4
 
+lm_off_extra:
+    dd 0
 
 strcmp: ; (const char *s1 (esi), const char *s2 (edi))
        push esi
@@ -53,15 +59,15 @@ link_symbol: ; (struct link_map *entry, uint32_t *h)
             ; eax = *h % entry->l_nbuckets
         mov eax, [ecx]
         xor edx, edx
-        mov ebx, [ebp + LM_NBUCKETS_OFFSET]
+        mov ebx, [ebp + edi + LM_NBUCKETS_OFFSET]
         div ebx
             ; eax = entry->l_gnu_buckets[eax]
-        mov eax, [ebp + LM_GNU_BUCKETS_OFFSET]
+        mov eax, [ebp + edi + LM_GNU_BUCKETS_OFFSET]
         mov eax, [eax + edx * 4]
             ; *h |= 1
          or word [ecx], 1
 .check_bucket:      ; edx = entry->l_gnu_chain_zero[eax] | 1
-                mov edx, [ebp + LM_GNU_CHAIN_ZERO_OFFSET]
+                mov edx, [ebp + edi + LM_GNU_CHAIN_ZERO_OFFSET]
                 mov edx, [edx + eax * 4]
                  or edx, 1
                     ; check if this is our symbol
@@ -112,7 +118,10 @@ link: ; (struct link_map *root, char *symtable)
                         cmp byte [esi], 0
                          jz .next_library
                         inc esi
+                       push edi
+                        mov edi, [lm_off_extra]
                        call link_symbol
+                        pop edi
                         add esi, 4
                         jmp .do_symbols
 .next_library:  pop eax
@@ -123,6 +132,20 @@ link: ; (struct link_map *root, char *symtable)
 
 extern main
 _start:
+        ; try to get the 'version-agnostic' pffset of the stuff we're
+        ; interested in
+        mov ebx, eax
+        mov esi, eax
+    .looper:
+      lodsd
+        cmp dword eax, _start
+        jne short .looper
+        sub esi, ebx
+        sub esi, LM_ENTRY_OFFSET_BASE+4 ; +4: take inc-after from lodsb into acct
+        mov [lm_off_extra], esi
+
+        mov eax, ebx
+
        push _symbols
        push eax
        call link
