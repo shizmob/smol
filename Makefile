@@ -38,7 +38,7 @@ $(OBJDIR)/symbols.%.s: $(OBJDIR)/%.o.syms
 	$(LDRDIR)/mksyms $(LIBS) $$(cat $^) > $@
 
 $(OBJDIR)/header.%.o: $(OBJDIR)/symbols.%.s $(LDRDIR)/header.s $(LDRDIR)/loader.s
-	nasm $(ASFLAGS) $< -o $@
+	nasm -DUSE_INTERP $(ASFLAGS) $< -o $@
 
 $(BINDIR)/%: $(OBJDIR)/%.o $(OBJDIR)/header.%.o
 	$(LD) -m elf_i386 $(LDFLAGS) $^ -o $@
