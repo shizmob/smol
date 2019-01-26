@@ -6,7 +6,9 @@ SECTIONS {
   .header : { *(.header) }
 
   .text : {
-     *(.text .text.* .rdata .rdata.* .rodata .rodata.*)
+     *(.text._smol_start)
+     *(.text._start)
+     *(.text .rdata .rdata.* .rodata .rodata.*)
   }
 
   .data : {

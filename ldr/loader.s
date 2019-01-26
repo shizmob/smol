@@ -1,5 +1,4 @@
 ; vim: set ft=nasm ts=8:
-[section .text]
 
 %define LM_NAME_OFFSET           0x4
 %define LM_NEXT_OFFSET           0xC
@@ -21,6 +20,8 @@
 
 lm_off_extra:
     dd 0
+
+[section .text._smol_start]
 
 strcmp: ; (const char *s1 (esi), const char *s2 (edi))
        push esi
@@ -130,15 +131,15 @@ link: ; (struct link_map *root, char *symtable)
 .done:  ret
 
 
-extern main
-_start:
+extern _start
+_smol_start:
         ; try to get the 'version-agnostic' pffset of the stuff we're
         ; interested in
         mov ebx, eax
         mov esi, eax
     .looper:
       lodsd
-        cmp dword eax, _start
+        cmp dword eax, _smol_start
         jne short .looper
         sub esi, ebx
         sub esi, LM_ENTRY_OFFSET_BASE+4 ; +4: take inc-after from lodsb into acct
@@ -150,6 +151,6 @@ _start:
        push eax
        call link
 
-       call main
-       int3
+        ;jmp short _start
+        ; by abusing the linker script, _start ends up right here :)
 

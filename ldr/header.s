@@ -20,7 +20,7 @@ header:
         ; e_version
         dd 1
         ; e_entry
-        dd _start
+        dd _smol_start
         ; e_phoff
         dd (.segments - header)
         ; e_shoff
