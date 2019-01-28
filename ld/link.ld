@@ -6,9 +6,9 @@ SECTIONS {
   .header : { *(.header) }
 
   .text : {
-     *(.text._smol_start)
-     *(.text._start)
-     *(.text .rdata .rdata.* .rodata .rodata.*)
+     *(.text.startup.smol)
+     *(.text.startup._start)
+     *(.text .text.* .rdata .rdata.* .rodata .rodata.*)
   }
 
   .data : {
@@ -22,5 +22,5 @@ SECTIONS {
      *(.*)
   }
 
-  _size = . - 0x400000;
+  _smol_total_size = . - 0x400000;
 }

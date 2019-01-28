@@ -7,3 +7,4 @@ int main(void) {
     SDL_DestroyWindow(w);
     return 0;
 }
+

@@ -1,0 +1,25 @@
+; vim: set ft=nasm:
+
+%define EI_CLASS        (1) ; 1 == 32-bit
+%define EI_DATA         (1) ; 1 == little-endian
+%define EI_VERSION      (1) ; current
+%define EI_OSABI        (3) ; Linux
+%define EI_OSABIVERSION (1) ; current
+
+%define ELF_TYPE (2) ; 2 == executable
+
+%ifndef ELF_MACHINE
+%define ELF_MACHINE (3) ; 3 == i386
+%endif
+
+%define PT_LOAD    (1)
+%define PT_DYNAMIC (2)
+%define PT_INTERP  (3)
+
+%define PHDR_R (4)
+%define PHDR_W (2)
+%define PHDR_X (1)
+
+%define DT_STRTAB (5)
+%define DT_SYMTAB (6)
+
