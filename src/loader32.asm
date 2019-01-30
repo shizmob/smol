@@ -6,6 +6,7 @@
 
 
 _smol_start:
+       push edx ; _dl_fini
             ; try to get the 'version-agnostic' pffset of the stuff we're
             ; interested in
         mov ebx, eax
@@ -15,7 +16,7 @@ _smol_start:
         cmp dword eax, _smol_start
         jne short .looper
         sub esi, ebx
-        sub esi, LM_ENTRY_OFFSET_BASE+4 ; +4: take inc-after from lodsb into acct
+        sub esi, LM_ENTRY_OFFSET_BASE+4 ; +4: take inc-after from lodsd into acct
 
        xchg ebp, ebx
        xchg ebx, esi
@@ -30,24 +31,17 @@ link: ; (struct link_map *root, char *symtable)
                     mov esi, [ebp + LM_NAME_OFFSET]
 
 .basename: ; (const char *s (esi))
-                           push esi
-                           push edi
                             mov edi, esi
                     .basename.cmp:
                           lodsb
-                             or al, al
-                             jz short .basename.done
-                            cmp al, 47 ; '/'
+                            cmp al, '/'
                           cmove edi, esi
-                            jmp short .basename.cmp
+                             or al, al
+                            jnz short .basename.cmp
                     .basename.done:
-                           xchg eax, edi
-                            pop edi
                             pop esi
 .basename.end:
 
-                        mov edi, eax
-                        pop esi
 .strcmp: ; (const char *s1 (esi), const char *s2 (edi))
                            push esi
                            push edi
@@ -77,7 +71,7 @@ link: ; (struct link_map *root, char *symtable)
 .do_symbols:                ; null byte means end of symbols for this library!
                       lodsb
                        test al, al
-                         jz short .next_library
+                         jz short .do_library
                        push ebx
                        xchg ebx, edi
 
@@ -89,7 +83,7 @@ link: ; (struct link_map *root, char *symtable)
                             xor edx, edx
                             mov ebx, [ebp + edi + LM_NBUCKETS_OFFSET]
                             div ebx
-                                ; eax = entry->l_gnu_buckets[eax]
+                                ; eax = entry->l_gnu_buckets[edx]
                             mov eax, [ebp + edi + LM_GNU_BUCKETS_OFFSET]
                             mov eax, [eax + edx * 4]
                                 ; *h |= 1
@@ -119,14 +113,13 @@ link: ; (struct link_map *root, char *symtable)
                         add esi, 4
                         jmp short link.do_symbols
                 inc esi
-link.next_library:
-                jmp link.do_library
 link.done:
 
       ;xor ebp, ebp ; let's put that burden on the user code, so they can leave
                     ; it out if they want to
 
-       sub esp, 20  ; put the stack where _stack (C code) expects it to be
+       pop edx      ; _dl_fini
+       sub esp, 20  ; put the stack where _start (C code) expects it to be
                     ; this can't be left out, because X needs the envvars
 
 ;.loopme: jmp short .loopme

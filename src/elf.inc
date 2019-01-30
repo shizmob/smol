@@ -1,6 +1,10 @@
 ; vim: set ft=nasm:
 
+%if __BITS__ == 32
 %define EI_CLASS        (1) ; 1 == 32-bit
+%else
+%define EI_CLASS        (2) ; 2 == 64-bit
+%endif
 %define EI_DATA         (1) ; 1 == little-endian
 %define EI_VERSION      (1) ; current
 %define EI_OSABI        (3) ; Linux
@@ -9,7 +13,11 @@
 %define ELF_TYPE (2) ; 2 == executable
 
 %ifndef ELF_MACHINE
-%define ELF_MACHINE (3) ; 3 == i386
+%if __BITS__ == 32
+%define ELF_MACHINE ( 3) ;  3 == i386
+%else
+%define ELF_MACHINE (62) ; 62 == x86_64
+%endif
 %endif
 
 %define PT_LOAD    (1)

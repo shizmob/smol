@@ -1,10 +1,7 @@
 ; vim: set ft=nasm:
 
-%define ORIGIN 0x400000
-;org ORIGIN
-bits 32
+%include "linkscr.inc"
 
-extern _smol_total_size
 [section .header]
 
 %include "elf.inc"
@@ -25,7 +22,33 @@ header:
     dd 0               ; e_flags
     dw (.segments - header) ; e_ehsize
     dw (.segments.load - .segments.dynamic) ; e_phentsize
+%ifdef USE_NX
+%error "USE_NX not supported yet on i386 ('GOT' still needs RWX, and alignment has to be fixed)"
+;%ifdef USE_INTERP
+;    dw 4, 0            ; e_phnum, e_shentsize
+;%else
+;    dw 3, 0
+;%endif
+;.segments:
+;.segments.load.text:
+;    dd PT_LOAD
+;    dd _smol_origin
+;    dd _smol_text_start, 0
+;    dd _smol_textandheader_size
+;    dd _smol_textandheader_size
+;    dd (PHDR_R | PHDR_X)
+;    dd 0x1000
+;.segments.load.data:
+;    dd PT_LOAD
+;    dd _smol_data_off
+;    dd _smol_data_start, 0
+;    dd _smol_data_size
+;    dd _smol_dataandbss_size
+;    dd (PHDR_R | PHDR_W)
+;    dd 0x1;000
+%else
 .segments:
+%endif
 %ifdef USE_INTERP
 .segments.interp:
     dd PT_INTERP          ; {e_phnum: 2, e_shentsize: 0}, p_type
@@ -42,14 +65,17 @@ header:
     dd (.dynamic.end - .dynamic) ; p_filesz
     dd (.dynamic.end - .dynamic) ; p_memsz
     dd 0, 0                ; p_flags, p_align
+%ifndef USE_NX
 .segments.load:
     dd PT_LOAD          ; p_type: 1 = PT_LOAD
     dd 0                ; p_offset
-    dd ORIGIN, 0        ; p_vaddr, p_paddr
-    dd _smol_total_size ; p_filesz
-    dd _smol_total_size ; p_memsz
+    dd _smol_origin, 0  ; p_vaddr, p_paddr
+    ; use memsize twice here, linux doesn't care and it compresses better
+    dd _smol_total_memsize ; p_filesz
+    dd _smol_total_memsize ; p_memsz
     dd (PHDR_R | PHDR_W | PHDR_X) ; p_flags
     dd 0x1000           ; p_align
+%endif
 .segments.end:
 %ifdef USE_INTERP
 .interp:
