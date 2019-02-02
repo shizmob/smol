@@ -9,19 +9,10 @@
 [section .text]
 %endif
 
-; rax: special op reg
-;!rbx: ptrdiff_t glibc_vercompat_extra_hi_field_off
-; rcx: special op reg
-; rdx: special op reg
-; rsi: special op reg
-; rdi: struct link_map* root / special op reg
-; rbp:
-; r8 :
-; r9 :
-;!r10: struct link_map* entry + far correction factor
-; r11: temp storage var
-;!r12: struct link_map* entry
-;!r13: _dl_fini address (reqd by the ABI)
+; rbx: ptrdiff_t glibc_vercompat_extra_hi_field_off
+; r10: struct link_map* entry + far correction factor
+; r12: struct link_map* entry
+; r13: _dl_fini address (reqd by the ABI)
 
 %ifndef ELF_TYPE
 extern _symbols
@@ -29,7 +20,9 @@ global _start
 _start:
 %endif
 _smol_start:
+%ifdef USE_DL_FINI
    xchg r13, rdx ; _dl_fini
+%endif
 
     mov r12, [rsp -  8]        ; return address of _dl_init
     mov r11d, dword [r12 - 20] ; decode part of 'mov rdi, [rel _rtld_global]'
@@ -164,9 +157,11 @@ _smol_start:
             jmp short .next_hash
 
 .needed_end:
-   ;xor rbp, rbp
+   ;xor rbp, rbp ; still 0 from _dl_start_user
     mov rdi, rsp
    push rax
+%ifdef USE_DL_FINI
    xchg rsi, r13 ; _dl_fini
+%endif
         ; fallthru to _start
 

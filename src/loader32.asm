@@ -2,11 +2,19 @@
 
 %include "rtld.inc"
 
+%ifdef ELF_TYPE
 [section .text.startup.smol]
+%else
+; not defined -> debugging!
+[section .text]
+%endif
 
 
 _smol_start:
+
+%ifdef USE_DL_FINI
        push edx ; _dl_fini
+%endif
             ; try to get the 'version-agnostic' pffset of the stuff we're
             ; interested in
         mov ebx, eax
@@ -118,7 +126,9 @@ link.done:
       ;xor ebp, ebp ; let's put that burden on the user code, so they can leave
                     ; it out if they want to
 
+%ifdef USE_DL_FINI
        pop edx      ; _dl_fini
+%endif
        sub esp, 20  ; put the stack where _start (C code) expects it to be
                     ; this can't be left out, because X needs the envvars
 

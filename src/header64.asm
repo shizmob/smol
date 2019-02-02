@@ -23,19 +23,23 @@ ehdr:
     dw phdr.load - phdr.dynamic ; e_phentsize
 
 %ifdef USE_NX
-%ifdef USE_INTERP
+    %ifdef USE_INTERP
     dw 4                ; e_phnum
-%else
+    %else
     dw 3                ; e_phnum
-%endif
+    %endif
     dw 0, 0, 0          ; e_shentsize, e_shnum, e_shstrndx
-%else
+ehdr.end:
+%endif
+
 phdr:
 %ifdef USE_INTERP
 phdr.interp:
     dd PT_INTERP        ; p_type    ; e_phnum, e_shentsize
     dd 0                ; p_flags   ; e_shnum, e_shstrndx
+    %ifndef USE_NX
 ehdr.end:
+    %endif
     dq interp - ehdr    ; p_offset
     dq interp, interp   ; p_vaddr, p_paddr
     dq interp.end - interp ; p_filesz
@@ -63,10 +67,24 @@ phdr.load:
     dq _smol_total_memsize ; p_memsz
     dq 0x1000           ; p_align
 %else
-%error "TODO" ; TODO
+phdr.load:
+    dd PT_LOAD
+    dd PHDR_R | PHDR_X
+    dq 0
+    dq ehdr, 0
+    dq _smol_textandheader_size
+    dq _smol_textandheader_size
+    dq 0x1000 ; let's hope this works
+phdr.load2:
+    dd PT_LOAD
+    dd PHDR_R | PHDR_W
+    dq _smol_data_off
+    dq _smol_data_start, 0
+    dq _smol_dataandbss_size
+    dq _smol_dataandbss_size
+    dq 0x1000
 %endif
-
-%endif
+phdr.end:
 
 %ifdef USE_INTERP
 interp:
