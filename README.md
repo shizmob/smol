@@ -92,3 +92,7 @@ and 0, and will thus pretty much never change.)
 
 auld alrj blackle breadbox faemiyah gib3&tix0 las leblane parcelshit unlord
 
+## License
+
+[WTFPL](/LICENSE)
+
