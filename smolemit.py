@@ -3,12 +3,6 @@ import sys
 
 from smolshared import *
 
-def hash_djb2(s):
-    h = 5381
-    for c in s:
-        h = (h * 33 + ord(c)) & 0xFFFFFFFF
-    return h
-
 def output_x86(libraries, outf):
     outf.write('; vim: set ft=nasm:\n') # be friendly
     outf.write('bits 32\n')
