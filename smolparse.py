@@ -60,9 +60,9 @@ def is_valid_elf(f):
 
 def find_lib(spaths, wanted):
     for p in spaths:
-        for f in glob.glob(glob.escape(p) + '/lib' + wanted + '.so*'):
+        for f in glob.glob(glob.escape(p + '/lib' + wanted) + '.so*'):
             if os.path.isfile(f) and is_valid_elf(f): return f
-        for f in glob.glob(glob.escape(p) + '/'    + wanted + '.so*'):
+        for f in glob.glob(glob.escape(p + '/'    + wanted) + '.so*'):
             if os.path.isfile(f) and is_valid_elf(f): return f
         #for f in glob.glob(glob.escape(p) + '/lib' + wanted + '.a' ): return f
         #for f in glob.glob(glob.escape(p) + '/'    + wanted + '.a' ): return f
