@@ -15,11 +15,20 @@ def output_x86(libraries, outf):
         outf.write('dd (_symbols.{} - _symbols)\n'.format(shorts[library]))
     outf.write('.dynamic.end:\n')
 
+#    if needgot:
+#        outf.write('global _GLOBAL_OFFSET_TABLE_\n')
+#        outf.write('_GLOBAL_OFFSET_TABLE_:\n')
+#        outf.write('dd dynamic\n')
     outf.write('_symbols:\n')
-    for library, symbols in libraries.items():
+    for library, symrels in libraries.items():
         outf.write('\t_symbols.{}: db "{}",0\n'.format(shorts[library], library))
 
-        for sym in symbols:
+        for sym, reloc in symrels:
+            # meh
+            if reloc != 'R_386_PC32':
+                eprintf('Relocation type ' + reloc + ' of symbol ' + sym + ' unsupported!')
+                sys.exit(1)
+
             hash = hash_djb2(sym)
             outf.write("""
 \t\tglobal {name}
@@ -46,11 +55,25 @@ def output_amd64(libraries, outf):
     outf.write('dynamic.end:\n')
 
     outf.write('[section .data.smolgot]\n')
+#    if needgot:
+#        outf.write('global _GLOBAL_OFFSET_TABLE_\n')
+#        outf.write('_GLOBAL_OFFSET_TABLE_:\n')
+#        outf.write('dq dynamic\n')
     outf.write('_symbols:\n')
-    for library, symbols in libraries.items():
+    for library, symrels in libraries.items():
         outf.write('\t_symbols.{}: db "{}",0\n'.format(shorts[library], library))
 
-        for sym in symbols:
+        for sym, reloc in symrels:
+            if reloc != 'R_X86_64_PLT32' and reloc != 'R_X86_64_GOTPCRELX':
+                eprintf('Relocation type ' + reloc + ' of symbol ' + sym + ' unsupported!')
+                sys.exit(1)
+
+            if reloc == 'R_X86_64_GOTPCRELX':
+                outf.write("""
+global {name}
+{name}:
+""".format(name=sym).lstrip('\n'))
+
             hash = hash_djb2(sym)
             outf.write('\t\t_symbols.{lib}.{name}: dq 0x{hash:x}\n'\
                        .format(lib=shorts[library],name=sym,hash=hash))
@@ -60,9 +83,10 @@ def output_amd64(libraries, outf):
     outf.write('_symbols.end:\n')
 
     outf.write('_smolplt:\n')
-    for library, symbols in libraries.items():
-        for sym in symbols:
-            outf.write("""
+    for library, symrels in libraries.items():
+        for sym, reloc in symrels:
+            if reloc == 'R_X86_64_PLT32':
+                outf.write("""
 [section .text.smolplt.{name}]
 global {name}
 {name}:

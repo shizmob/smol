@@ -44,7 +44,7 @@ _smol_start:
     sub rsi, LF_ENTRY_OFF+8
    xchg rbx, rsi
 
-    mov rsi, _symbols
+    mov esi, _symbols
 
             ; for (rsi = (uint8_t*)_symbols; *rsi; ++rsi) {
      .next_needed:
@@ -159,7 +159,9 @@ _smol_start:
 .needed_end:
    ;xor rbp, rbp ; still 0 from _dl_start_user
     mov rdi, rsp
+%ifdef ALIGN_STACK
    push rax
+%endif
 %ifdef USE_DL_FINI
    xchg rsi, r13 ; _dl_fini
 %endif

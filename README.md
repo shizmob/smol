@@ -8,7 +8,9 @@ PoC by Shiz, bugfixing and 64-bit version by PoroCYon.
 
 ```sh
 ./smol.py -lfoo -lbar input.o... smol-output.asm
-nasm -I src/ [-DUSE_NX] [-DUSE_DL_FINI] -o nasm-output.o smol-output.asm
+nasm -I src/ [-DUSE_INTERP] [-DALIGN_STACK] [-DUSE_NX] [-DUSE_DL_FINI] \
+    -o nasm-output.o smol-output.asm
+# -DALIGN_STACK: 64-bit only.
 ld -T ld/link.ld -o binary nasm-output.o input.o...
 ```
 

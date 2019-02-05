@@ -31,18 +31,45 @@ def decide_arch(inpfiles):
 
     return archmagic[archn]
 
+def build_reloc_typ_table(reo):
+    relocs = dict({})
+
+    for s in reo.decode('utf-8').splitlines():
+        stuff = s.split()
+
+        # prolly a 'header' line
+        if len(stuff) < 5:
+            continue
+
+        # yes, we're assuming every reference to the same symbol will use the
+        # same relocation type. if this isn't the case, your compiler flags are
+        # stupid
+        relocs[stuff[4]] = stuff[2]
+
+    return relocs
+
 def get_needed_syms(readelf_bin, inpfiles):
     output = subprocess.check_output([readelf_bin, '-s', '-W']+inpfiles,
                                      stderr=subprocess.DEVNULL)
+    outrel = subprocess.check_output([readelf_bin, '-r', '-W']+inpfiles,
+                                     stderr=subprocess.DEVNULL)
+
+    relocs = build_reloc_typ_table(outrel)
 
     syms=set({})
     for entry in output.decode('utf-8').splitlines():
         stuff = entry.split()
         if len(stuff)<8: continue
-        if stuff[4] == "GLOBAL" and stuff[6] == "UND" and len(stuff[7])>0:
-            syms.add(stuff[7])
+        if stuff[4] == "GLOBAL" and stuff[6] == "UND" and len(stuff[7])>0 \
+                and stuff[7] in relocs:
+            syms.add((stuff[7], relocs[stuff[7]]))
 
-    return syms
+    #needgot = False
+    #if "_GLOBAL_OFFSET_TABLE_" in syms:
+    #    needgot = True
+    #    syms.remove("_GLOBAL_OFFSET_TABLE_")
+
+    return syms#, needgot
 
 def get_cc_paths(cc_bin):
     output = subprocess.check_output([cc_bin, '-print-search-dirs'],

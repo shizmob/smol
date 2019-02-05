@@ -52,13 +52,13 @@ def main():
     libs = list(find_libs(spaths, libnames))
     symbols = {}
 
-    for symbol in syms:
+    for symbol, reloc in syms:
         library = find_symbol(args.scanelf, libs, libnames, symbol)
         if not library:
             eprintf("could not find symbol: {}".format(symbol))
             sys.exit(1)
         symbols.setdefault(library, [])
-        symbols[library].append(symbol)
+        symbols[library].append((symbol, reloc))
 
     output(arch, symbols, args.output)
 
