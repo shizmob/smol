@@ -28,6 +28,7 @@
 %define PHDR_W (2)
 %define PHDR_X (1)
 
-%define DT_STRTAB (5)
-%define DT_SYMTAB (6)
+%define DT_STRTAB ( 5)
+%define DT_SYMTAB ( 6)
+%define DT_DEBUG  (21)
 

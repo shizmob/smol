@@ -92,6 +92,8 @@ interp:
 interp.end:
 %endif
 
+global _DYNAMIC
+_DYNAMIC:
 dynamic:
 dynamic.strtab:
     dq DT_STRTAB        ; d_tag
@@ -99,4 +101,10 @@ dynamic.strtab:
 dynamic.symtab:
     dq DT_SYMTAB        ; d_tag
     dq 0                ; d_un.d_ptr
+%ifdef USE_DT_DEBUG
+dynamic.debug:
+    dq DT_DEBUG         ; d_tag
+_DEBUG:
+    dq 0                ; d_un.d_ptr
+%endif
 

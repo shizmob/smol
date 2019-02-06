@@ -17,6 +17,17 @@ _smol_start:
 %endif
             ; try to get the 'version-agnostic' pffset of the stuff we're
             ; interested in
+
+%ifdef USE_DT_DEBUG
+        mov eax, [rel _DEBUG]
+        mov eax, [eax + 4]
+%endif
+
+%ifdef SKIP_ENTRIES
+        mov eax, [eax + LM_NEXT_OFFSET] ; skip this binary
+        mov eax, [eax + LM_NEXT_OFFSET] ; skip the vdso
+%endif
+
         mov ebx, eax
         mov esi, eax
 .looper:

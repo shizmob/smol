@@ -82,6 +82,8 @@ header:
     db "/lib/ld-linux.so.2",0
 .interp.end:
 %endif
+global _DYNAMIC
+_DYNAMIC:
 .dynamic:
 .dynamic.strtab:
     dd DT_STRTAB ; d_tag
@@ -90,4 +92,9 @@ header:
     ; this is required to be present or ld.so will crash, but it can be bogus
     dd DT_SYMTAB ; d_tag: 6 = DT_SYMTAB
     dd 0         ; d_un.d_ptr
+%ifdef USE_DT_DEBUG
+    dd DT_DEBUG
+_DEBUG:
+    dd 0
+%endif
 

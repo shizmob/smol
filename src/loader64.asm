@@ -24,11 +24,21 @@ _smol_start:
    xchg r13, rdx ; _dl_fini
 %endif
 
+%ifdef USE_DT_DEBUG
+    mov r12, [rel _DEBUG]
+    mov r12, [r14 + 8]
+%else
     mov r12, [rsp -  8]        ; return address of _dl_init
     mov r11d, dword [r12 - 20] ; decode part of 'mov rdi, [rel _rtld_global]'
     mov r12, [r12 + r11 - 16]  ; ???
         ; struct link_map* root = r12
    ;mov r12, rdi
+%endif
+%ifdef SKIP_ENTRIES
+    mov r12, [r12 + L_NEXT_OFF] ; skip this binary
+    mov r12, [r12 + L_NEXT_OFF] ; skip the vdso
+%endif
+
     mov rsi, r12
 
             ; size_t* field = (size_t*)root;
