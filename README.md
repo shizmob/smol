@@ -51,6 +51,13 @@ optional arguments:
 
 A minimal crt (and `_start` funcion) are provided in case you want to use `main`.
 
+## smoldd
+
+`smoldd.py` is a script that tries to resolve all symbols from the hashes when
+imported by a `smol`-ified binary. This can thus be used to detect user mistakes
+during dynamic linking. (Think of it as an equivalent of `ldd`, except that it
+also checks whether the imported functions are present as well.)
+
 ## Internal workings
 
 `smol.py` inspects the input object files for needed library files and symbols.
@@ -81,12 +88,18 @@ jmp *%edi
 On x86_64, it's a bit more convoluted: the contents of `_rtld_local` is loaded
 into `rsi`, but because of the x86_64 ABI, the caller isn't required to restore
 that register. However, due to the `call` instruction, a pointer to the
-instruction after the call will be placed on the stack, at `_start`, it's at
-`rsp - 8`. Then, the offset to the "load from `_rtld_local`"-instruction can be
-calculated, and the part of the instruction which contains the offset to
-`_rtld_local`, from the instruction after the load (of which the address is now
-also known), can be read, and thus the contents of that global variable are
-available as well.
+instruction after the call will be placed on the stack. And thus, at `_start`,
+that pointer will be available at `rsp - 8`. Then, the offset to the "load from
+`_rtld_local`"-instruction can be calculated, and the part of the instruction
+which contains the offset to `_rtld_local`, from the instruction after the load
+(of which the address is now also known), can be read, and thus the location
+and contents of that global variable are available as well.
+
+When using `DT_DEBUG`, a different mechanism is used to take hold of the
+`struct link_map`: on program startup, `ld.so` will place a pointer to its
+debug data in the value of the `DT_DEBUG` key-value-pair. In glibc, this is
+the `r_debug` datatype. The second field of that type, is a pointer to the
+root `struct link_map`.
 
 Now the code continues with walking the "import tables" for the needed
 libraries (which already have been automatically parsed by `ld.so`), looks
