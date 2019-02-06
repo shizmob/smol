@@ -30,12 +30,25 @@ def readstr(blob, off):
 
     return text.decode('utf-8'), off
 
-def find_libs(bits, libname):
-    dirs = os.environ['LD_LIBRARY_PATH'].split(':')
-    dirs += ['/usr/lib','/lib']
+def get_def_libpaths(cc_bin, is32bit):
+    if is32bit:
+        return ['/usr/lib32/','/lib32/']
+
+    out = subprocess.check_output([cc_bin, '-print-search-dirs'],
+                                     stderr=subprocess.DEVNULL)
+
+    stuff = dict({})
+    for l in out.decode('utf-8').splitlines():
+        blah = l.split(': ')
+        stuff[blah[0]] = blah[1].lstrip('=').split(':')
+
+    return stuff["libraries"]
+
+def find_libs(bits, deflibs, libname):
+    dirs = os.environ['LD_LIBRARY_PATH'].split(':') + deflibs
 
     for d in dirs:
-        for f in glob.glob(glob.escape(d+str(bits)+'/'+libname)+'*'):
+        for f in glob.glob(glob.escape(d + libname) + '*'):
             yield f
 
 def build_hashtab(scanelf_bin, lib):
@@ -57,6 +70,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('input', type=argparse.FileType('rb'),
                         default=sys.stdin.buffer, help="input file")
+    parser.add_argument('--cc',
+                        default=shutil.which('cc'), help="C compiler binary")
     parser.add_argument('--scanelf',
                         default=shutil.which('scanelf'), help="scanelf binary")
 
@@ -67,6 +82,8 @@ def main():
     machnum = struct.unpack('<H', blob[18:18+2])[0]
 
     is32bit = machnum == archmagic['i386']
+
+    deflibs = get_def_libpaths(args.cc, is32bit)
 
     phoff, phsz, phnum = 0, 0, 0
     if is32bit:
@@ -124,7 +141,7 @@ def main():
 
                 sys.stdout.write("* " + libname)
 
-                libs = list(find_libs(32 if is32bit else 64, libname))
+                libs = list(find_libs((32 if is32bit else 64), deflibs, libname))
                 print(" -> NOT FOUND" if len(libs) == 0 else (" -> " + libs[0]))
                 ht = dict({}) if len(libs) == 0 else build_hashtab(args.scanelf, libs[0])
 
