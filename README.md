@@ -9,10 +9,23 @@ PoC by Shiz, bugfixing and 64-bit version by PoroCYon.
 ```sh
 ./smol.py -lfoo -lbar input.o... smol-output.asm
 nasm -I src/ [-DUSE_INTERP] [-DALIGN_STACK] [-DUSE_NX] [-DUSE_DL_FINI] \
-    -o nasm-output.o smol-output.asm
-# -DALIGN_STACK: 64-bit only.
+    [-DUSE_DT_DEBUG] [-DSKIP_ENTRIES] -o nasm-output.o smol-output.asm
 ld -T ld/link.ld -o binary nasm-output.o input.o...
 ```
+
+* `USE_INTERP`: Include an interp segment in the output ELF file. If not, the
+  dynamic linker **must** be invoked *explicitely*! (You probably want to
+  enable this.)
+* `ALIGN_STACK`: *64-bit only*: realign the stack so that SSE instructions
+  won't segfault.
+* `USE_NX`: Don't use `RWE` segments at all. Not very well tested.
+* `USE_DL_FINI`: keep track of the `_dl_fini` function and pass it to `_start`.
+* `USE_DT_DEBUG`: retrieve the `struct link_map` from the `r_debug` linker
+  data (which is placed at `DT_DEBUG` at startup) instead of exploiting data
+  leakage from `_dt_start_user`. Might be more compatible, but strictly worse
+  size-wise on i386, and probably on x86_64 as well.
+* `SKIP_ENTRIES`: skip the first two entries of the `struct link_map`, which
+  represent the main binary and the vDSO.
 
 ```
 usage: smol.py [-h] [-m TARGET] [-l LIB] [-L DIR] [--nasm NASM] [--cc CC]
