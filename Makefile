@@ -27,8 +27,8 @@ ASFLAGS += -f elf64
 endif
 LDFLAGS_=$(LDFLAGS) -T $(LDDIR)/link.ld --oformat=binary
 
-CFLAGS   += -m$(BITS)
-CXXFLAGS += -m$(BITS)
+CFLAGS   += -m$(BITS) $(shell pkg-config --cflags sdl2)
+CXXFLAGS += -m$(BITS) $(shell pkg-config --cflags sdl2)
 
 LIBS=-lc
 
@@ -39,7 +39,7 @@ PYTHON3 ?= python3
 
 all: $(BINDIR)/hello $(BINDIR)/sdl
 
-LIBS += -lX11 #-lSDL2 -lGL
+LIBS += -lSDL2 -lGL #-lX11
 
 clean:
 	@$(RM) -vrf $(OBJDIR) $(BINDIR)
