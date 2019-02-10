@@ -37,9 +37,9 @@ ASFLAGS += -DUSE_INTERP -DALIGN_STACK
 NASM    ?= nasm
 PYTHON3 ?= python3
 
-all: $(BINDIR)/hello $(BINDIR)/sdl
+all: $(BINDIR)/hello-crt $(BINDIR)/sdl-crt
 
-LIBS += -lSDL2 -lGL #-lX11
+LIBS += $(shell pkg-config --libs sdl2) -lX11 #-lGL
 
 clean:
 	@$(RM) -vrf $(OBJDIR) $(BINDIR)
@@ -64,8 +64,15 @@ $(OBJDIR)/stub.%.o: $(OBJDIR)/symbols.%.asm $(SRCDIR)/header32.asm \
         $(SRCDIR)/loader32.asm
 	$(NASM) $(ASFLAGS) $< -o $@
 
+$(OBJDIR)/stub.%.start.o: $(OBJDIR)/symbols.%.start.asm $(SRCDIR)/header32.asm \
+        $(SRCDIR)/loader32.asm
+	$(NASM) $(ASFLAGS) $< -o $@
+
 $(BINDIR)/%: $(OBJDIR)/%.o $(OBJDIR)/stub.%.o $(BINDIR)/
 	$(LD) -Map=$(BINDIR)/$*.map $(LDFLAGS_) $(OBJDIR)/$*.o $(OBJDIR)/stub.$*.o -o "$@"
+
+$(BINDIR)/%-crt: $(OBJDIR)/%.start.o $(OBJDIR)/stub.%.start.o $(BINDIR)/
+	$(LD) -Map=$(BINDIR)/$*-crt.map $(LDFLAGS_) $(OBJDIR)/$*.start.o $(OBJDIR)/stub.$*.start.o -o "$@"
 
 .PHONY: all clean
 
