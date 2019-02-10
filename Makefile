@@ -32,14 +32,14 @@ CXXFLAGS += -m$(BITS)
 
 LIBS=-lc
 
-ASFLAGS += -DUSE_INTERP
+ASFLAGS += -DUSE_INTERP -DALIGN_STACK
 
 NASM    ?= nasm
 PYTHON3 ?= python3
 
 all: $(BINDIR)/hello $(BINDIR)/sdl
 
-LIBS += -lSDL2 -lGL
+LIBS += -lX11 #-lSDL2 -lGL
 
 clean:
 	@$(RM) -vrf $(OBJDIR) $(BINDIR)
@@ -57,15 +57,15 @@ $(OBJDIR)/%.o: $(TESTDIR)/%.c $(OBJDIR)/
 $(OBJDIR)/%.start.o: $(OBJDIR)/%.o $(OBJDIR)/crt1.o
 	$(LD) $(LDFLAGS) -r -o "$@" $^
 
-$(OBJDIR)/symbols.%.asm: $(OBJDIR)/%.start.o
+$(OBJDIR)/symbols.%.asm: $(OBJDIR)/%.o
 	$(PYTHON3) ./smol.py $(LIBS) "$<" "$@"
 
 $(OBJDIR)/stub.%.o: $(OBJDIR)/symbols.%.asm $(SRCDIR)/header32.asm \
         $(SRCDIR)/loader32.asm
 	$(NASM) $(ASFLAGS) $< -o $@
 
-$(BINDIR)/%: $(OBJDIR)/%.start.o $(OBJDIR)/stub.%.o $(BINDIR)/
-	$(LD) -Map=$(BINDIR)/$*.map $(LDFLAGS_) $(OBJDIR)/$*.start.o $(OBJDIR)/stub.$*.o -o "$@"
+$(BINDIR)/%: $(OBJDIR)/%.o $(OBJDIR)/stub.%.o $(BINDIR)/
+	$(LD) -Map=$(BINDIR)/$*.map $(LDFLAGS_) $(OBJDIR)/$*.o $(OBJDIR)/stub.$*.o -o "$@"
 
 .PHONY: all clean
 

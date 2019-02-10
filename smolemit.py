@@ -9,11 +9,11 @@ def output_x86(libraries, outf):
     shorts = { l: l.split('.', 1)[0].lower().replace('-', '_') for l in libraries }
 
     outf.write('%include "header32.asm"\n')
-    outf.write('.dynamic.needed:\n')
+    outf.write('dynamic.needed:\n')
     for library in libraries:
         outf.write('dd 1;DT_NEEDED\n')
         outf.write('dd (_symbols.{} - _symbols)\n'.format(shorts[library]))
-    outf.write('.dynamic.end:\n')
+    outf.write('dynamic.end:\n')
 
 #    if needgot:
 #        outf.write('global _GLOBAL_OFFSET_TABLE_\n')
