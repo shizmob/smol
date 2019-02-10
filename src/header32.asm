@@ -60,10 +60,10 @@ header:
 %endif
 .segments.dynamic:
     dd PT_DYNAMIC          ; {e_phnum: 2, e_shentsize: 0}, p_type
-    dd (.dynamic - header) ; {e_shnum: <junk>, e_shstrnd: <junk>}, p_offset
-    dd .dynamic, 0         ; p_vaddr, p_paddr
-    dd (.dynamic.end - .dynamic) ; p_filesz
-    dd (.dynamic.end - .dynamic) ; p_memsz
+    dd (dynamic - header)  ; {e_shnum: <junk>, e_shstrnd: <junk>}, p_offset
+    dd  dynamic, 0         ; p_vaddr, p_paddr
+    dd (dynamic.end - dynamic) ; p_filesz
+    dd (dynamic.end - dynamic) ; p_memsz
     dd 0, 0                ; p_flags, p_align
 %ifndef USE_NX
 .segments.load:
@@ -84,11 +84,11 @@ header:
 %endif
 global _DYNAMIC
 _DYNAMIC:
-.dynamic:
-.dynamic.strtab:
+dynamic:
+dynamic.strtab:
     dd DT_STRTAB ; d_tag
     dd _symbols  ; d_un.d_ptr
-.dynamic.symtab:
+dynamic.symtab:
     ; this is required to be present or ld.so will crash, but it can be bogus
     dd DT_SYMTAB ; d_tag: 6 = DT_SYMTAB
     dd 0         ; d_un.d_ptr
