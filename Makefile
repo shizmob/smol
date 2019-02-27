@@ -37,9 +37,9 @@ ASFLAGS += -DUSE_INTERP -DALIGN_STACK
 NASM    ?= nasm
 PYTHON3 ?= python3
 
-all: $(BINDIR)/hello-crt $(BINDIR)/sdl-crt
+all: $(BINDIR)/hello-crt $(BINDIR)/sdl-crt $(BINDIR)/flag-crt
 
-LIBS += $(shell pkg-config --libs sdl2) -lX11 #-lGL
+LIBS += $(filter-out -pthread,$(shell pkg-config --libs sdl2)) -lX11 #-lGL
 
 clean:
 	@$(RM) -vrf $(OBJDIR) $(BINDIR)

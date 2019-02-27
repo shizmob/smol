@@ -29,16 +29,23 @@ _smol_start:
 %endif
 
         mov ebx, eax
-        mov esi, eax
-.looper:
-      lodsd
-        cmp dword eax, _smol_start
-        jne short .looper
-        sub esi, ebx
-        sub esi, LM_ENTRY_OFFSET_BASE+4 ; +4: take inc-after from lodsd into acct
+;       mov esi, eax
+;.looper:
+;     lodsd
+;       cmp dword eax, _smol_start
+;       jne short .looper
+;       sub esi, ebx
+;       sub esi, LM_ENTRY_OFFSET_BASE+4 ; +4: take inc-after from lodsd into acct
+        mov edi, eax
+       push -1
+        pop ecx
+        mov eax, _smol_start
+repne scasd
+        sub edi, ebx
+        sub edi, LM_ENTRY_OFFSET_BASE+4
 
        xchg ebp, ebx
-       xchg ebx, esi
+       xchg ebx, edi;esi
         mov esi, _symbols
 
 link: ; (struct link_map *root, char *symtable)

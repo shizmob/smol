@@ -31,30 +31,39 @@ _smol_start:
     mov r12, [rsp -  8]        ; return address of _dl_init
     mov r11d, dword [r12 - 20] ; decode part of 'mov rdi, [rel _rtld_global]'
     mov r12, [r12 + r11 - 16]  ; ???
-        ; struct link_map* root = r12
-   ;mov r12, rdi
 %endif
+        ; struct link_map* root = r12
 %ifdef SKIP_ENTRIES
     mov r12, [r12 + L_NEXT_OFF] ; skip this binary
     mov r12, [r12 + L_NEXT_OFF] ; skip the vdso
 %endif
 
-    mov rsi, r12
-
+;   mov rsi, r12
             ; size_t* field = (size_t*)root;
             ; for (; *field != _smol_start; ++field) ;
-    .next_off:
-      lodsq
-        cmp rax, _smol_start
-        jne short .next_off
+;   .next_off:
+;     lodsq
+;       cmp rax, _smol_start
+;       jne short .next_off
 
         ; // rbx = offsetof(struct link_map* rsi, l_entry) - DEFAULT_OFFSET
         ; rbx = field - root - offsetof(struct link_map, l_entry)
-    sub rsi, r12
-    sub rsi, LF_ENTRY_OFF+8
-   xchg rbx, rsi
+;   sub rsi, r12
+;   sub rsi, LF_ENTRY_OFF+8
+;  xchg rbx, rsi
 
-    mov esi, _symbols
+        mov rdi, r12
+       push -1
+        pop rcx
+       ;mov rax, _smol_start
+        lea rax, [rel _smol_start]
+repne scasq
+        sub rdi, r12
+        sub rdi, LF_ENTRY_OFF+8
+       xchg rbx, rdi
+
+   ;mov esi, _symbols
+    lea esi, [rel _symbols]
 
             ; for (rsi = (uint8_t*)_symbols; *rsi; ++rsi) {
      .next_needed:
