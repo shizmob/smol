@@ -1,3 +1,5 @@
+/* "Tiny X11 Trans Flag" by Suricrasia Online, edited a bit to make testing
+ * easier */
 #include<X11/X.h>
 #include<X11/Xlib.h>
 #include<X11/Xutil.h>
@@ -12,8 +14,9 @@
 static Atom wmDeleteMessage;
 #endif
 
-__attribute__((__used__))
-void _start() {
+/*__attribute__((__used__))
+void _start() {*/
+int main() {
   //initialize the window
   Display* dpy = XOpenDisplay(NULL);
 
