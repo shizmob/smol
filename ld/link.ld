@@ -4,13 +4,13 @@ SECTIONS {
   . = 0x400000;
   _smol_origin = .;
 
-  .header : { *(.header) }
+  .header : { KEEP(*(.header)) }
 
   _smol_text_start = .;
   _smol_text_off = _smol_text_start - _smol_origin;
   .text : {
-     *(.text.startup.smol)
-     *(.text.startup._start)
+     KEEP(*(.text.startup.smol))
+     KEEP(*(.text.startup._start))
      *(.text .text.* .rdata .rdata.* .rodata .rodata.*)
   }
   _smol_text_end = .;
@@ -21,7 +21,7 @@ SECTIONS {
   _smol_data_start = .;
   _smol_data_off = _smol_data_start - _smol_origin;
   .data : {
-     *(.data.smolgot)
+     KEEP(*(.data.smolgot))
      *(.data .data.* .tdata .tdata.*)
   }
 
