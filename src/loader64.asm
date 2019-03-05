@@ -1,8 +1,5 @@
 ; vim: set ft=nasm:
 
-; TODO: r13 -> something else
-; TODO: smaller!!
-
 %define R10_BIAS (0x2B8)
 
 %include "rtld.inc"
@@ -48,7 +45,6 @@ _smol_start:
         mov rdi, r12
        push -1
         pop rcx
-       ;mov rax, _smol_start
         lea rax, [rel _smol_start] ; TODO: make offset positive!
 repne scasq
         sub rdi, r12
@@ -118,7 +114,6 @@ repne scasq
                 ; do {
          .next_hash:
                 ; if (!*phash) break;
-         ;lodsq
             mov eax, dword [rdi]
              or eax, eax
              jz short .next_needed ; done the last hash, so move to the next lib
@@ -157,7 +152,6 @@ repne scasq
    push r12
     pop r11 ; back up link_map root
     .next_hash:
-     ;lodsq
         mov eax, dword [rdi]
          or al, al
          jz short .needed_end
@@ -226,9 +220,6 @@ repne scasq
             add rax, rcx
 
                 ; *phash = finaladdr
-           ;mov [rsi-8], rax
-;           mov [rsi], rax
-;         lodsq
           stosq
 
             ; } while (1)
