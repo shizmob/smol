@@ -87,17 +87,19 @@ phdr.load2:
 phdr.end:
 
 %ifdef USE_INTERP
+[section .rodata.interp]
 interp:
     db "/lib64/ld-linux-x86-64.so.2", 0
 interp.end:
 %endif
 
+[section .rodata.dynamic]
 global _DYNAMIC
 _DYNAMIC:
 dynamic:
 dynamic.strtab:
     dq DT_STRTAB        ; d_tag
-    dq _symbols         ; d_un.d_ptr
+    dq _strtab          ; d_un.d_ptr
 dynamic.symtab:
     dq DT_SYMTAB        ; d_tag
     dq 0                ; d_un.d_ptr

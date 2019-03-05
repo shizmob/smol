@@ -87,7 +87,7 @@ _DYNAMIC:
 dynamic:
 dynamic.strtab:
     dd DT_STRTAB ; d_tag
-    dd _symbols  ; d_un.d_ptr
+    dd _strtab   ; d_un.d_ptr
 dynamic.symtab:
     ; this is required to be present or ld.so will crash, but it can be bogus
     dd DT_SYMTAB ; d_tag: 6 = DT_SYMTAB
