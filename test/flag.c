@@ -10,13 +10,13 @@
 
 #define COLOR(r, g, b) ((r << 16) + (g << 8) + b)
 
-#ifdef MAKE_ESC_WORK
-static Atom wmDeleteMessage;
-#endif
-
 /*__attribute__((__used__))
 void _start() {*/
 int main() {
+#ifdef MAKE_ESC_WORK
+  Atom wmDeleteMessage;
+#endif
+
   //initialize the window
   Display* dpy = XOpenDisplay(NULL);
 

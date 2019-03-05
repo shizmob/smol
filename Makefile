@@ -27,6 +27,8 @@ ASFLAGS += -f elf64
 endif
 LDFLAGS_=$(LDFLAGS) -T $(LDDIR)/link.ld --oformat=binary
 
+SMOLFLAGS ?= #--libsep
+
 CFLAGS   += -m$(BITS) $(shell pkg-config --cflags sdl2)
 CXXFLAGS += -m$(BITS) $(shell pkg-config --cflags sdl2)
 
@@ -37,7 +39,7 @@ ASFLAGS += -DUSE_INTERP -DALIGN_STACK
 NASM    ?= nasm
 PYTHON3 ?= python3
 
-all: $(BINDIR)/hello-crt $(BINDIR)/sdl-crt $(BINDIR)/flag-crt
+all: $(BINDIR)/hello-crt $(BINDIR)/sdl-crt $(BINDIR)/flag-crt $(BINDIR)/hello-_start
 
 LIBS += $(filter-out -pthread,$(shell pkg-config --libs sdl2)) -lX11 #-lGL
 
@@ -58,7 +60,7 @@ $(OBJDIR)/%.start.o: $(OBJDIR)/%.o $(OBJDIR)/crt1.o
 	$(LD) $(LDFLAGS) -r -o "$@" $^
 
 $(OBJDIR)/symbols.%.asm: $(OBJDIR)/%.o
-	$(PYTHON3) ./smol.py $(LIBS) "$<" "$@"
+	$(PYTHON3) ./smol.py $(SMOLFLAGS) $(LIBS) "$<" "$@"
 
 $(OBJDIR)/stub.%.o: $(OBJDIR)/symbols.%.asm $(SRCDIR)/header32.asm \
         $(SRCDIR)/loader32.asm

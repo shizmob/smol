@@ -9,9 +9,12 @@ SECTIONS {
   _smol_text_start = .;
   _smol_text_off = _smol_text_start - _smol_origin;
   .text : {
+     KEEP(*(.rodata.dynamic))
+     KEEP(*(.rodata.interp .rodata.neededlibs))
+     *(.rdata .rdata.* .rodata .rodata.*)
      KEEP(*(.text.startup.smol))
      KEEP(*(.text.startup._start))
-     *(.text .text.* .rdata .rdata.* .rodata .rodata.*)
+     *(.text .text.*)
   }
   _smol_text_end = .;
   _smol_text_size = _smol_text_end - _smol_text_start;
