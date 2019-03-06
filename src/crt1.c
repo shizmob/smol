@@ -15,6 +15,7 @@ int _start(void* stack) {
     int argc=*(size_t*)stack;
     char** argv=(void*)(&((size_t*)stack)[1]);
 
+    // TODO: fix this. it borks with -fno-plt
     __libc_start_main(main, argc, argv, NULL, NULL, NULL, (void*)stack);
 
     __builtin_unreachable();

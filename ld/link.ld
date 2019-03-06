@@ -1,7 +1,7 @@
 OUTPUT_FORMAT(binary)
 
 SECTIONS {
-  . = 0x400000;
+  . = 0x10000;
   _smol_origin = .;
 
   .header : { KEEP(*(.header)) }

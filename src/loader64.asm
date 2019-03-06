@@ -1,6 +1,7 @@
 ; vim: set ft=nasm:
 
-%define R10_BIAS (0x2B8)
+;%define R10_BIAS (0x2B4)
+%define R10_BIAS (0x2B4+0x40)
 
 %include "rtld.inc"
 
@@ -42,132 +43,41 @@ _smol_start:
         ; the second one isn't needed anymore, see code below (.next_link)
 %endif
 
-        mov rdi, r12
+       push _smol_start
+       push r12
        push -1
         pop rcx
-        lea rax, [rel _smol_start] ; TODO: make offset positive!
-repne scasq
+        pop rdi
+        pop rax
+repne scasd ; technically, scasq should be used, but ehhhh
         sub rdi, r12
-        sub rdi, LF_ENTRY_OFF+8
-       xchg r9 , rdi
+        sub rdi, LF_ENTRY_OFF+4
+       xchg r9, rdi
 
-   ;mov edi, _symbols
-    lea edi, [rel _symbols]
-
-%ifdef LIBSEP
-            ; for (rdi = (uint8_t*)_symbols; *rdi; ++rdi) {
-     .next_needed:
-        cmp byte [rdi], 0
-         je .needed_end
-
-            ; do { // iter over the link_map
-         .next_link:
-                ; entry = entry->l_next;
-            mov r12, [r12 + L_NEXT_OFF] ; skip the first one (this is our main
-                                        ; binary, it has no symbols)
-            lea r10, [r12 + r9  + R10_BIAS]
-
-                ; keep the current symbol in a backup reg
-           push rdi
-            pop rdx
-
-                ; r11 = basename(rsi = entry->l_name)
-            mov rsi, [r12 + L_NAME_OFF]
-         .basename:
-           push rsi
-            pop r11
-         .basename.next:
-          lodsb
-            cmp al, '/'
-          cmove r11, rsi
-             or al, al
-            jnz short .basename.next
-         .basename.done:
-
-                ; and place it back
-           push rdx
-           push rdx
-            pop rdi ; rdi == _symbol
-            pop rsi
-
-                ; strcmp(rsi, r11) -> flags; rsi == first hash if matches
-         .strcmp:
-          lodsb
-             or al, al
-             jz short .strcmp.done
-            sub al, byte [r11]
-         cmovnz rsi, rdx
-            jnz short .next_link;.strcmp.done
-            inc r11
-            jmp short .strcmp
-         .strcmp.done:
-           xchg rsi, rdi
-
-                ; if (strcmp(...)) goto next_link;
-        ;cmovnz r12, [r12 + L_NEXT_OFF] ; this is guaranteed to be nonzero
-           ;jnz short .next_link ; because otherwise ld.so would have complained
-
-                ; now we have the right link_map of the library, so all we have
-                ; to do now is to find the right symbol addresses corresponding
-                ; to the hashes.
-
-                ; do {
-         .next_hash:
-                ; if (!*phash) break;
-            mov eax, dword [rdi]
-             or eax, eax
-             jz short .next_needed ; done the last hash, so move to the next lib
-
-;link_symbol(struct link_map* entry = r12, size_t* phash = rsi, uint32_t hash = eax)
-
-           push rax
-            pop r11
-                ; uint32_t bkt_ind(edx) = hash % entry->l_nbuckets
-            xor edx, edx
-            mov ecx, dword [r10 + LF_NBUCKETS_OFF - R10_BIAS]
-            div ecx
-
-                ; shift left because we don't want to compare the lowest bit
-            shr r11, 1
-
-                ; uint32_t bucket(edx) = entry->l_gnu_buckets[bkt_ind]
-            mov r8, [r10 + LF_GNU_BUCKETS_OFF - R10_BIAS]
-            mov edx, dword [r8 + rdx * 4]
-
-                ; do {
-            .next_chain:
-                    ; uint32_t luhash(ecx) = entry->l_gnu_chain_zero[bucket] >> 1
-                mov rcx, [r10 + LF_GNU_CHAIN_ZERO_OFF - R10_BIAS]
-                mov ecx, dword [rcx + rdx * 4]
-                shr ecx, 1
-
-                    ; if (luhash == hash) break;
-                cmp ecx, r11d
-                 je short .chain_break
-                    ; ++bucket; } while (LIBSEP || (luhash & 1))
-                inc edx
-                jne short .next_chain
-%else
-; !LIBSEP
+   push _symbols
+        ; back up link_map root
    push r12
-    pop r11 ; back up link_map root
+    pop r11
+    pop rdi
+
+;.loopme: jmp short .loopme ; debugging
     .next_hash:
-        mov eax, dword [rdi]
-         or al, al
-         jz short .needed_end
-       push r11
-       push rax
-       push rax
+        mov r14d, dword [rdi]
+            ; assume we need at least one function
+;        or al, al
+;        jz short .needed_end
+        mov r12, r11
+;      push r11
+       push r14
         pop rbx
-        pop r14
-        pop r12
+;       pop r12
             ; shift left because we don't want to compare the lowest bit
         shr ebx, 1
 
         .next_link:
             mov r12, [r12 + L_NEXT_OFF]
 
-            lea r10, [r12 + r9  + R10_BIAS]
+            lea r10, [r12 + r9 + R10_BIAS]
                 ; uint32_t bkt_ind(edx) = hash % entry->l_nbuckets
             xor edx, edx
            push r14
@@ -177,31 +87,30 @@ repne scasq
 
                 ; uint32_t bucket(edx) = entry->l_gnu_buckets[bkt_ind]
             mov r8 , [r10 + LF_GNU_BUCKETS_OFF - R10_BIAS]
-            mov edx, dword [r8 + rdx * 4]
+            mov ecx, dword [r8 + rdx * 4]
 
-             or edx, edx
-             jz short .next_link
+                ; can be ignored apparently?
+;         jecxz .next_link
 
             .next_chain:
                     ; uint32_t luhash(ecx) = entry->l_gnu_chain_zero[bucket] >> 1
-                mov rcx, [r10 + LF_GNU_CHAIN_ZERO_OFF - R10_BIAS]
-                mov ecx, dword [rcx + rdx * 4]
+                mov rdx, [r10 + LF_GNU_CHAIN_ZERO_OFF - R10_BIAS]
+                mov edx, dword [rdx + rcx * 4]
 
-                    ; if (!(luhash & 1)) goto next_link; // nothing to be found in this lib.
-                mov al, cl
+                    ; TODO: make this not suck. (maybe using bt*?)
+                mov al, dl
 
-                shr ecx, 1
-
+                shr edx, 1
                     ; if (luhash == hash) break;
-                cmp ecx, ebx
+                cmp edx, ebx
                  je short .chain_break
 
                     ; ++bucket; } while (luhash & 1);
                 and al, 1
                 jnz short .next_link
-                inc edx
+
+                inc ecx
                 jmp short .next_chain
-%endif
 
         .chain_break:
                 ; ElfW(Sym)* symtab = entry->l_info[DT_SYMTAB]->d_un.d_ptr
@@ -213,21 +122,25 @@ repne scasq
                 ; ElfW(Sym)* symtab(rax) = dyn->d_un.d_ptr
             mov rax, [rax + D_UN_PTR_OFF]
                 ; ElfW(Addr) symoff(rax) = symtab[bucket].st_value
-            lea rdx, [rdx + rdx * 2]
+            lea rdx, [rcx + rcx * 2]
             mov rax, [rax + rdx * 8 + ST_VALUE_OFF]
                 ; void* finaladdr(rax) = symoff + entry->l_addr
-            mov rcx, [r12 + L_ADDR_OFF]
-            add rax, rcx
+            add rax, [r12 + L_ADDR_OFF]
 
                 ; *phash = finaladdr
           stosq
-
+            cmp byte [rdi], 0
+            jne short .next_hash
             ; } while (1)
-        jmp short .next_hash
+;       jmp short .next_hash
 
 .needed_end:
-   ;xor rbp, rbp ; still 0 from _dl_start_user
+;  int3 ; debugging
+;   xor rbp, rbp ; still 0 from _dl_start_user
+%ifndef NO_START_ARG
+        ; arg for _start
     mov rdi, rsp
+%endif
 %ifdef ALIGN_STACK
    push rax
 %endif
