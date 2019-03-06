@@ -142,7 +142,8 @@ repne scasd ; technically, scasq should be used, but ehhhh
     mov rdi, rsp
 %endif
 %ifdef ALIGN_STACK
-   push rax
+       ; apparently not needed?
+; push rax
 %endif
 %ifdef USE_DL_FINI
    xchg rsi, r13 ; _dl_fini
