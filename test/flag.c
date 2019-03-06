@@ -10,9 +10,9 @@
 
 #define COLOR(r, g, b) ((r << 16) + (g << 8) + b)
 
-__attribute__((__used__,__externally_visible__))
-void _start() {
-/*int main() {*/
+/*__attribute__((__used__,__externally_visible__))
+void _start() {*/
+int main() {
 #ifdef MAKE_ESC_WORK
   Atom wmDeleteMessage;
 #endif
