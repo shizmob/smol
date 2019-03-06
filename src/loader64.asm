@@ -129,7 +129,7 @@ repne scasd ; technically, scasq should be used, but ehhhh
 
                 ; *phash = finaladdr
           stosq
-            cmp byte [rdi], 0
+            cmp word [rdi], 0
             jne short .next_hash
             ; } while (1)
 ;       jmp short .next_hash
