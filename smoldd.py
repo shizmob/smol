@@ -121,42 +121,46 @@ def main():
         # if the next libname/first byte of the hash is null, the table has
         # come to an end.
 
-        j = poff
-        strtaboff = 0
-        while j < poff + pfsz:
-            tag, j = (readint(blob, j) if is32bit else readlong(blob, j))
-            ptr, j = (readint(blob, j) if is32bit else readlong(blob, j))
+        if is32bit:
+            j = poff
+            strtaboff = 0
+            while j < poff + pfsz:
+                tag, j = readint(blob, j)
+                ptr, j = readint(blob, j)
 
-            if tag == 5: # DT_STRTAB
-                strtaboff = ptr
-            elif tag == 1: # DT_NEEDED
-                bakoff = j
+                if tag == 5: # DT_STRTAB
+                    strtaboff = ptr
+                elif tag == 1: # DT_NEEDED
+                    bakoff = j
 
-                smoltaboff = strtaboff + ptr - (pva - poff)
-                j = smoltaboff
+                    smoltaboff = strtaboff + ptr - (pva - poff)
+                    j = smoltaboff
 
-                libname, j = readstr(blob, j)
-                if len(libname) == 0:
-                    break
-
-                sys.stdout.write("* " + libname)
-
-                libs = list(find_libs((32 if is32bit else 64), deflibs, libname))
-                print(" -> NOT FOUND" if len(libs) == 0 else (" -> " + libs[0]))
-                ht = dict({}) if len(libs) == 0 else build_hashtab(args.scanelf, libs[0])
-
-                while True:
-                    hashv, j = (readint(blob, j) if is32bit else readlong(blob, j))
-
-                    if (hashv & 0xFF) == 0:
+                    libname, j = readstr(blob, j)
+                    if len(libname) == 0:
                         break
 
-                    sys.stdout.write("  * " + hex(hashv))
-                    print(" -> NOT FOUND" if hashv not in ht else (" -> " + ht[hashv]))
+                    sys.stdout.write("* " + libname)
 
-                j = bakoff
+                    libs = list(find_libs(32, deflibs, libname))
+                    print(" -> NOT FOUND" if len(libs) == 0 else (" -> " + libs[0]))
+                    ht = dict({}) if len(libs) == 0 else build_hashtab(args.scanelf, libs[0])
 
-        break
+                    while True:
+                        hashv, j = readint(blob, j)
+
+                        if (hashv & 0xFF) == 0:
+                            break
+
+                        sys.stdout.write("  * " + hex(hashv))
+                        print(" -> NOT FOUND" if hashv not in ht else (" -> " + ht[hashv]))
+
+                    j = bakoff
+
+            break
+        else: # 64-bit
+            eprintf("Currently unsuppored, sorry.")
+            sys.exit(1)
 
 if __name__ == '__main__':
     main()
