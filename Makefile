@@ -11,7 +11,7 @@ BITS ?= $(shell getconf LONG_BIT)
 #  -ffast-math -funsafe-math-optimizations -fno-stack-protector -fomit-frame-pointer \
 #  -fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables
 
-COPTFLAGS=-O2 -fno-plt -fno-stack-protector -fno-stack-check -fno-unwind-tables \
+COPTFLAGS=-Os -fno-plt -fno-stack-protector -fno-stack-check -fno-unwind-tables \
   -fno-asynchronous-unwind-tables -fomit-frame-pointer -ffast-math -no-pie \
   -fno-pic -fno-PIE -m64 -march=core2 -ffunction-sections -fdata-sections
 CXXOPTFLAGS=$(COPTFLAGS) -fno-exceptions \
@@ -40,7 +40,7 @@ CXXFLAGS += -m$(BITS) $(shell pkg-config --cflags sdl2)
 
 LIBS=-lc
 
-ASFLAGS += -DUSE_INTERP -DALIGN_STACK #-DUSE_DT_DEBUG #-DNO_START_ARG
+ASFLAGS += -DUSE_INTERP -DALIGN_STACK -DNO_START_ARG #-DUSE_DT_DEBUG
 
 NASM    ?= nasm
 PYTHON3 ?= python3

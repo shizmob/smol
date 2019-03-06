@@ -27,7 +27,7 @@ int _start(void* stack) {
                  "push %%rcx\n"
                  "pop  %%r8\n"
                  "pop  %%r9\n"
-                 "call *__libc_start_main@GOTPCREL(%%rip)\n"
+                 "jmp *__libc_start_main@GOTPCREL(%%rip)\n"
             :
             :"S"(argc), "D" (main), "d" (argv)
             :);
