@@ -9,8 +9,8 @@
 ehdr:
     ; e_ident
     db 0x7F, "ELF"
-    db EI_CLASS, EI_DATA, EI_VERSION, EI_OSABI
-    db EI_OSABIVERSION
+    db EI_CLASS, EI_DATA, EI_VERSION, 0;EI_OSABI
+    db 0;EI_OSABIVERSION
     times 7 db 0
     dw ELF_TYPE         ; e_type
     dw ELF_MACHINE      ; e_machine

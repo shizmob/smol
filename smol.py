@@ -30,8 +30,8 @@ def main():
     parser.add_argument('--readelf', default=shutil.which('readelf'), \
         help="which readelf binary to use")
 
-    parser.add_argument('--libsep', default=False, action='store_true', \
-        help="Separete import symbols per library, instead of looking at every library when resolving a symbol.")
+#   parser.add_argument('--libsep', default=False, action='store_true', \
+#       help="Separete import symbols per library, instead of looking at every library when resolving a symbol.")
 
     parser.add_argument('input', nargs='+', help="input object file")
     parser.add_argument('output', type=argparse.FileType('w'), \
@@ -64,7 +64,7 @@ def main():
         symbols.setdefault(library, [])
         symbols[library].append((symbol, reloc))
 
-    output(arch, symbols, args.libsep, args.output)
+    output(arch, symbols, args.output)
 
 if __name__ == '__main__':
     main()

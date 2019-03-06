@@ -7,7 +7,8 @@ TESTDIR:= test
 BITS ?= $(shell getconf LONG_BIT)
 
 # -mpreferred-stack-boundary=3 messes up the stack and kills SSE!
-COPTFLAGS=-Os -fvisibility=hidden -fwhole-program \
+# -fno-plt
+COPTFLAGS=-Os -fvisibility=hidden -fwhole-program -fno-plt \
   -ffast-math -funsafe-math-optimizations -fno-stack-protector -fomit-frame-pointer \
   -fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables
 CXXOPTFLAGS=$(COPTFLAGS) \
@@ -27,19 +28,17 @@ ASFLAGS += -f elf64
 endif
 LDFLAGS_=$(LDFLAGS) -T $(LDDIR)/link.ld --oformat=binary
 
-SMOLFLAGS ?= #--libsep
-
 CFLAGS   += -m$(BITS) $(shell pkg-config --cflags sdl2)
 CXXFLAGS += -m$(BITS) $(shell pkg-config --cflags sdl2)
 
 LIBS=-lc
 
-ASFLAGS += -DUSE_INTERP -DALIGN_STACK
+ASFLAGS += -DUSE_INTERP -DALIGN_STACK -DUSE_DT_DEBUG -DNO_START_ARG
 
 NASM    ?= nasm
 PYTHON3 ?= python3
 
-all: $(BINDIR)/hello-crt $(BINDIR)/sdl-crt $(BINDIR)/flag-crt $(BINDIR)/hello-_start
+all: $(BINDIR)/hello-crt $(BINDIR)/sdl-crt $(BINDIR)/flag $(BINDIR)/hello-_start
 
 LIBS += $(filter-out -pthread,$(shell pkg-config --libs sdl2)) -lX11 #-lGL
 
