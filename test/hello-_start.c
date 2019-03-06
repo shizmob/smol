@@ -1,7 +1,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-const char *f = "foo";
+__attribute__((__section__(".rodata.hello-_start$f")))
+const static char *f = "foo";
 
 __attribute__((__externally_visible__, __section__(".text.startup._start"),
     __noreturn__
