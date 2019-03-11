@@ -51,9 +51,11 @@ def output_x86(libraries, outf):
 # end output_x86
 
 
-def output_amd64(libraries, outf):
+def output_amd64(libraries, dnload, outf):
     outf.write('; vim: set ft=nasm:\n')
     outf.write('bits 64\n')
+    if dnload:
+        outf.write('%define USE_DNLOAD_LOADER\n')
 
     shorts = { l: l.split('.', 1)[0].lower().replace('-', '_') for l in libraries }
 
@@ -108,9 +110,9 @@ global {name}
 # end output_amd64
 
 
-def output(arch, libraries, outf):
+def output(arch, libraries, dnload, outf):
     if arch == 'i386': output_x86(libraries, outf)
-    elif arch == 'x86_64': output_amd64(libraries, outf)
+    elif arch == 'x86_64': output_amd64(libraries, dnload, outf)
     else:
         eprintf("E: cannot emit for arch '" + str(arch) + "'")
         sys.exit(1)

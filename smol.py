@@ -30,6 +30,8 @@ def main():
     parser.add_argument('--readelf', default=shutil.which('readelf'), \
         help="which readelf binary to use")
 
+    parser.add_argument('-d', '--dnload', default=False, action='store_true', \
+        help="Use dnload's mechanism of importing functions. Slightly larger, but usually better compressable.")
 #   parser.add_argument('--libsep', default=False, action='store_true', \
 #       help="Separete import symbols per library, instead of looking at every library when resolving a symbol.")
 
@@ -64,7 +66,7 @@ def main():
         symbols.setdefault(library, [])
         symbols[library].append((symbol, reloc))
 
-    output(arch, symbols, args.output)
+    output(arch, symbols, args.dnload, args.output)
 
 if __name__ == '__main__':
     main()
