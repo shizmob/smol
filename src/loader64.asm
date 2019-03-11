@@ -41,8 +41,6 @@ _smol_start:
     mov r12, [r12 + L_NEXT_OFF] ; skip this binary
 ;   mov r12, [r12 + L_NEXT_OFF] ; skip the vdso
         ; the second one isn't needed anymore, see code below (.next_link)
-;%elifdef USE_DNLOAD_LOADER
-;    mov r12, [r12 + L_NEXT_OFF] ; skip this binary
 %endif
 
 %ifdef USE_DNLOAD_LOADER
@@ -53,7 +51,6 @@ _smol_start:
 
 ;.loopme: jmp short .loopme ; debugging
     .next_hash:
-            ;
         mov r14d, dword [rdi]
             ; assume it's nonzero
        push r11
@@ -90,6 +87,7 @@ _smol_start:
             jge short .norelsymaddr
             add rax, rcx
         .norelsymaddr:
+;          xchg rax, rdx
            push rax
             pop rdx
 
@@ -97,36 +95,37 @@ _smol_start:
             mov esi, dword [rdx + ST_NAME_OFF]
             add rsi, r9
 
+            xor ecx, ecx
            push 33
            push 5381
-           push 0
-            pop rcx
+;          push 0
+;           pop rcx
             pop rax
             pop rbx
         .nexthashiter:
-                ; TODO: optimize register usage so that lodsb can be used
-            mov cl, byte [rsi]
-            inc rsi
-             or cl, cl
-             jz short .breakhash
+                    ; TODO: optimize register usage a bit more
+               xchg eax, ecx
+              lodsb
+                 or al, al
+               xchg eax, ecx
+                 jz short .breakhash
 
-           push rdx
-            mul ebx
-            pop rdx
-            add eax, ecx
-            jmp short .nexthashiter
+               push rdx
+                mul ebx
+                pop rdx
+                add eax, ecx
+                jmp short .nexthashiter
         .breakhash:
 
             cmp r14d, eax
-             je short .eq
+             je short .hasheq
 
             add rdx, SYMTAB_SIZE
             cmp rdx, r8
              jl short .next_sym
-;          int3
             jmp short .next_link
 
-        .eq:
+        .hasheq:
             mov rax, [rdx + ST_VALUE_OFF]
             add rax, [r12 + L_ADDR_OFF]
           stosq
@@ -141,7 +140,7 @@ _smol_start:
         pop rcx
         pop rdi
         pop rax
-repne scasd ; technically, scasq should be used, but ehhhh
+repne scasd ; technically, scasq should be used, but meh. this is 1 byte smaller
         sub rdi, r12
         sub rdi, LF_ENTRY_OFF+4
        xchg r9, rdi
