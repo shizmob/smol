@@ -18,11 +18,13 @@
 
 %define DT_SYMSIZE_SHIFT         4
 
+%define DT_STRTAB                0x5
 %define DT_SYMTAB                0x6
 
 %else
 %define L_ADDR_OFF           (  0)
 %define L_NAME_OFF           (  8)
+%define L_LD_OFF             ( 16)
 %define L_NEXT_OFF           ( 24)
 %define L_INFO_OFF           ( 64)
 %define L_INFO_DT_SYMTAB_OFF (112)

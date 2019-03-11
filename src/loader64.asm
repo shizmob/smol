@@ -41,8 +41,100 @@ _smol_start:
     mov r12, [r12 + L_NEXT_OFF] ; skip this binary
 ;   mov r12, [r12 + L_NEXT_OFF] ; skip the vdso
         ; the second one isn't needed anymore, see code below (.next_link)
+;%elifdef USE_DNLOAD_LOADER
+;    mov r12, [r12 + L_NEXT_OFF] ; skip this binary
 %endif
 
+%ifdef USE_DNLOAD_LOADER
+   push _symbols
+   push r12
+    pop r11
+    pop rdi
+
+;.loopme: jmp short .loopme ; debugging
+    .next_hash:
+            ;
+        mov r14d, dword [rdi]
+            ; assume it's nonzero
+       push r11
+        pop r12
+
+        .next_link:
+            mov r12, [r12 + L_NEXT_OFF]
+                ; ElfW(Dyn)* dyn(rsi) = r12->l_ld
+            mov rsi, [r12 + L_LD_OFF]
+
+                ; get strtab off
+            .next_dyn:
+              lodsq
+                cmp al, DT_STRTAB
+              lodsq
+                jne short .next_dyn
+
+                ; void* addr(rcx) = r12->l_addr
+                ; const char* strtab(r9) = lookup(rsi,DT_STRTAB), *symtab_end(r8)=r9;
+            mov rcx, [r12 + L_ADDR_OFF]
+            cmp rax, rcx
+            jge short .noreldynaddr
+            add rax, rcx
+        .noreldynaddr:
+           push rax
+           push rax
+            pop r8
+            pop r9
+
+                ; const ElfW(Sym)* symtab(rdx) = lookup(rsi, DT_SYMTAB);
+          lodsq ; SYMTAB d_tag
+          lodsq ; SYMTAB d_un.d_ptr
+            cmp rax, rcx
+            jge short .norelsymaddr
+            add rax, rcx
+        .norelsymaddr:
+           push rax
+            pop rdx
+
+        .next_sym:
+            mov esi, dword [rdx + ST_NAME_OFF]
+            add rsi, r9
+
+           push 33
+           push 5381
+           push 0
+            pop rcx
+            pop rax
+            pop rbx
+        .nexthashiter:
+                ; TODO: optimize register usage so that lodsb can be used
+            mov cl, byte [rsi]
+            inc rsi
+             or cl, cl
+             jz short .breakhash
+
+           push rdx
+            mul ebx
+            pop rdx
+            add eax, ecx
+            jmp short .nexthashiter
+        .breakhash:
+
+            cmp r14d, eax
+             je short .eq
+
+            add rdx, SYMTAB_SIZE
+            cmp rdx, r8
+             jl short .next_sym
+;          int3
+            jmp short .next_link
+
+        .eq:
+            mov rax, [rdx + ST_VALUE_OFF]
+            add rax, [r12 + L_ADDR_OFF]
+          stosq
+            cmp word [rdi], 0
+            jne short .next_hash
+
+; if USE_DNLOAD_LOADER
+%else
        push _smol_start
        push r12
        push -1
@@ -134,6 +226,9 @@ repne scasd ; technically, scasq should be used, but ehhhh
             ; } while (1)
 ;       jmp short .next_hash
 
+; if USE_DNLOAD_LOADER ... else ...
+%endif
+
 .needed_end:
 ;  int3 ; debugging
 ;   xor rbp, rbp ; still 0 from _dl_start_user
@@ -142,8 +237,11 @@ repne scasd ; technically, scasq should be used, but ehhhh
     mov rdi, rsp
 %endif
 %ifdef ALIGN_STACK
+%ifdef USE_DNLOAD_LOADER
+   push rax
+%else
        ; apparently not needed?
-; push rax
+%endif
 %endif
 %ifdef USE_DL_FINI
    xchg rsi, r13 ; _dl_fini

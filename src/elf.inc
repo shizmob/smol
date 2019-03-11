@@ -32,3 +32,9 @@
 %define DT_SYMTAB ( 6)
 %define DT_DEBUG  (21)
 
+%define ST_NAME_OFF  ( 0)
+;  ,---- not 16?
+; v
+%define ST_VALUE_OFF ( 8)
+%define SYMTAB_SIZE  (24)
+
