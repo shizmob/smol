@@ -100,9 +100,6 @@ dynamic:
 dynamic.strtab:
     dq DT_STRTAB        ; d_tag
     dq _strtab          ; d_un.d_ptr
-dynamic.symtab:
-    dq DT_SYMTAB        ; d_tag
-    dq 0                ; d_un.d_ptr
 %ifdef USE_DT_DEBUG
 dynamic.debug:
     dq DT_DEBUG         ; d_tag

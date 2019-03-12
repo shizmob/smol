@@ -236,14 +236,11 @@ repne scasd ; technically, scasq should be used, but meh. this is 1 byte smaller
     mov rdi, rsp
 %endif
 %ifdef ALIGN_STACK
-%ifdef USE_DNLOAD_LOADER
    push rax
-%else
-       ; apparently not needed?
-%endif
 %endif
 %ifdef USE_DL_FINI
    xchg rsi, r13 ; _dl_fini
 %endif
         ; fallthru to _start
 
+;.loopme: jmp short .loopme

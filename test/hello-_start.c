@@ -1,8 +1,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-__attribute__((__section__(".rodata.hello-_start$f")))
-const static char *f = "foo";
+/*__attribute__((__section__(".rodata.hello-_start$f")))
+static const char *f = "foo";*/
 
 __attribute__((__externally_visible__, __section__(".text.startup._start"),
     __noreturn__
@@ -11,7 +11,8 @@ __attribute__((__externally_visible__, __section__(".text.startup._start"),
 #endif
 ))
 int _start(void) {
-    puts("Hello World!");//printf("hello world %s\n", f);
+    //printf("hello world %s\n", f);
+    puts("Hello World!");
     asm volatile("int3");//exit(42);
     __builtin_unreachable();
 }
