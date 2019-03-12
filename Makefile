@@ -18,7 +18,7 @@ CXXOPTFLAGS=$(COPTFLAGS) -fno-exceptions \
   -fno-rtti -fno-enforce-eh-specs -fnothrow-opt -fno-use-cxa-get-exception-ptr \
   -fno-implicit-templates -fno-threadsafe-statics -fno-use-cxa-atexit
 
-CFLAGS=-Wall -Wextra -Wpedantic -std=gnu11 -nostartfiles -fno-PIC $(COPTFLAGS)
+CFLAGS=-Wall -Wextra -Wpedantic -std=gnu11 -nostartfiles -fno-PIC $(COPTFLAGS) #-DUSE_DL_FINI
 CXXFLAGS=-Wall -Wextra -Wpedantic -std=c++11 $(CXXOPTFLAGS) -nostartfiles -fno-PIC
 
 ASFLAGS=-I $(SRCDIR)/
@@ -40,13 +40,14 @@ CXXFLAGS += -m$(BITS) $(shell pkg-config --cflags sdl2)
 
 LIBS=-lc
 
-SMOLFLAGS += -d
-ASFLAGS   += -DUSE_INTERP -DALIGN_STACK -DNO_START_ARG #-DUSE_DT_DEBUG
+SMOLFLAGS +=
+ASFLAGS   += -DUSE_INTERP -DALIGN_STACK
+#-DUSE_DNLOAD_LOADER #-DUSE_DT_DEBUG #-DUSE_DL_FINI #-DNO_START_ARG #-DUNSAFE_DYNAMIC
 
 NASM    ?= nasm
 PYTHON3 ?= python3
 
-all: $(BINDIR)/hello-crt $(BINDIR)/sdl-crt $(BINDIR)/flag-crt $(BINDIR)/hello-_start
+all: $(BINDIR)/hello-crt $(BINDIR)/sdl-crt $(BINDIR)/flag $(BINDIR)/hello-_start
 
 LIBS += $(filter-out -pthread,$(shell pkg-config --libs sdl2)) -lX11 #-lGL
 

@@ -8,24 +8,32 @@ PoC by Shiz, bugfixing and 64-bit version by PoroCYon.
 
 ```sh
 ./smol.py -lfoo -lbar input.o... smol-output.asm
-nasm -I src/ [-DUSE_INTERP] [-DALIGN_STACK] [-DUSE_NX] [-DUSE_DL_FINI] \
-    [-DUSE_DT_DEBUG] [-DSKIP_ENTRIES] -o nasm-output.o smol-output.asm
-ld -T ld/link.ld -o binary nasm-output.o input.o...
+nasm -I src/ [-Doption ...] -o nasm-output.o smol-output.asm
+ld -T ld/link.ld --oformat=binary -o output.elf nasm-output.o input.o...
+# or cc -T ld/link.ld -Wl,--oformat=binary -o output.elf nasm-output.o input.o...
 ```
 
 * `USE_INTERP`: Include an interp segment in the output ELF file. If not, the
   dynamic linker **must** be invoked *explicitely*! (You probably want to
-  enable this.)
+  enable this.) Costs the size of a phdr plus the size of the interp string.
 * `ALIGN_STACK`: *64-bit only*: realign the stack so that SSE instructions
-  won't segfault.
-* `USE_NX`: Don't use `RWE` segments at all. Not very well tested.
-* `USE_DL_FINI`: keep track of the `_dl_fini` function and pass it to `_start`.
+  won't segfault. Costs 1 byte.
+* `USE_NX`: Don't use `RWE` segments at all. Not very well tested. Costs the
+  size of 1 phdr.
+* `USE_DL_FINI`: keep track of the `_dl_fini` function and pass it to your
+  `_start`. Costs 2 bytes, plus maybe a few more depending on how it's passed
+  to `__libc_start_main`.
 * `USE_DT_DEBUG`: retrieve the `struct link_map` from the `r_debug` linker
   data (which is placed at `DT_DEBUG` at startup) instead of exploiting data
-  leakage from `_dt_start_user`. Might be more compatible, but strictly worse
-  size-wise on i386, and probably on x86_64 as well.
+  leakage from `_dt_start_user`. Might be more compatible and compressable, but
+  strictly worse size-wise by 10 (i386) or 3 (x86_64) bytes.
 * `SKIP_ENTRIES`: skip the first two entries of the `struct link_map`, which
-  represent the main binary and the vDSO.
+  represent the main binary and the vDSO. Costs around 5 bytes.
+* `USE_DNLOAD_LOADER`: *64-bit only*: use the symbol loading mechanism as used
+  in dnload (i.e. traverse the symtab of the imported libraries). Slightly
+  larger, but probably better compressable.
+* `NO_START_ARG`: *don't* pass the stack pointer to `_start` as the first arg.
+  Will make it unable to read argc/argv/environ, but gives you 3 bytes.
 
 ```
 usage: smol.py [-h] [-m TARGET] [-l LIB] [-L DIR] [--nasm NASM] [--cc CC]
@@ -57,6 +65,9 @@ A minimal crt (and `_start` funcion) are provided in case you want to use `main`
 imported by a `smol`-ified binary. This can thus be used to detect user mistakes
 during dynamic linking. (Think of it as an equivalent of `ldd`, except that it
 also checks whether the imported functions are present as well.)
+
+***NOTE***: `smoldd.py` currently doesn't support 64-bit binaries anymore, as
+there's currently no (good) way of retrieving the symbol hash table anymore.
 
 ## Internal workings
 

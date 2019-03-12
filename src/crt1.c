@@ -15,8 +15,11 @@ __attribute__((__externally_visible__, __section__(".text.startup._start"),
         , __naked__
 #endif
 ))
-int _start(void* stack) {
-    // TODO: _dl_fini etc.
+int _start(void* stack
+#ifdef USE_DL_FINI
+        , void (*dl_fini)(void)
+#endif
+) {
     int argc=*(size_t*)stack;
     char** argv=(void*)(&((size_t*)stack)[1]);
 
@@ -32,7 +35,13 @@ int _start(void* stack) {
             :"S"(argc), "D" (main), "d" (argv)
             :);
 #else
-    __libc_start_main(main, argc, argv, NULL, NULL, NULL, (void*)stack);
+    __libc_start_main(main, argc, argv, NULL, NULL,
+#ifdef USE_DL_FINI
+            dl_fini
+#else
+            NULL
+#endif
+            , (void*)stack);
 #endif
 
     __builtin_unreachable();

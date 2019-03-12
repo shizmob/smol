@@ -51,20 +51,26 @@ def output_x86(libraries, outf):
 # end output_x86
 
 
-def output_amd64(libraries, dnload, outf):
+def output_amd64(libraries, outf):
     outf.write('; vim: set ft=nasm:\n')
     outf.write('bits 64\n')
-    if dnload:
-        outf.write('%define USE_DNLOAD_LOADER\n')
 
     shorts = { l: l.split('.', 1)[0].lower().replace('-', '_') for l in libraries }
 
     outf.write('%include "header64.asm"\n')
     outf.write('dynamic.needed:\n')
     for library in libraries:
-        outf.write('dq 1;DT_NEEDED\n')
-        outf.write('dq (_symbols.{} - _strtab)\n'.format(shorts[library]))
-    outf.write('dynamic.end:\n')
+        outf.write('    dq 1;DT_NEEDED\n')
+        outf.write('    dq (_symbols.{} - _strtab)\n'.format(shorts[library]))
+    outf.write("""\
+dynamic.symtab:
+    dq DT_SYMTAB        ; d_tag
+    dq 0                ; d_un.d_ptr
+dynamic.end:
+%ifndef UNSAFE_DYNAMIC
+    dq DT_NULL
+%endif
+""")
 
     outf.write('[section .rodata.neededlibs]\n')
 
@@ -110,9 +116,9 @@ global {name}
 # end output_amd64
 
 
-def output(arch, libraries, dnload, outf):
+def output(arch, libraries, outf):
     if arch == 'i386': output_x86(libraries, outf)
-    elif arch == 'x86_64': output_amd64(libraries, dnload, outf)
+    elif arch == 'x86_64': output_amd64(libraries, outf)
     else:
         eprintf("E: cannot emit for arch '" + str(arch) + "'")
         sys.exit(1)
