@@ -69,22 +69,22 @@ _smol_start:
                 jne short .next_dyn
 
                 ; void* addr(rcx) = r12->l_addr
-                ; const char* strtab(r9) = lookup(rsi,DT_STRTAB), *symtab_end(r8)=r9;
+                ; const char* strtab(r8)=lookup(rsi,DT_STRTAB)/*,*symtab_end(r9)=r8*/;
             mov rcx, [r12 + L_ADDR_OFF]
             cmp rax, rcx
-            jge short .noreldynaddr
+            jae short .noreldynaddr
             add rax, rcx
         .noreldynaddr:
            push rax
-           push rax
+;          push rax
             pop r8
-            pop r9
+;           pop r9
 
                 ; const ElfW(Sym)* symtab(rdx) = lookup(rsi, DT_SYMTAB);
           lodsq ; SYMTAB d_tag
           lodsq ; SYMTAB d_un.d_ptr
             cmp rax, rcx
-            jge short .norelsymaddr
+            jae short .norelsymaddr
             add rax, rcx
         .norelsymaddr:
 ;          xchg rax, rdx
@@ -93,7 +93,7 @@ _smol_start:
 
         .next_sym:
             mov esi, dword [rdx + ST_NAME_OFF]
-            add rsi, r9
+            add rsi, r8;9
 
             xor ecx, ecx
            push 33
@@ -122,7 +122,7 @@ _smol_start:
 
             add rdx, SYMTAB_SIZE
             cmp rdx, r8
-             jl short .next_sym
+             jb short .next_sym
             jmp short .next_link
 
         .hasheq:

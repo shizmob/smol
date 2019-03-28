@@ -13,7 +13,7 @@ BITS ?= $(shell getconf LONG_BIT)
 
 COPTFLAGS=-Os -fno-plt -fno-stack-protector -fno-stack-check -fno-unwind-tables \
   -fno-asynchronous-unwind-tables -fomit-frame-pointer -ffast-math -no-pie \
-  -fno-pic -fno-PIE -m64 -march=core2 -ffunction-sections -fdata-sections
+  -fno-pic -fno-PIE -m64 -march=core2 -ffunction-sections -fdata-sections -fno-plt
 CXXOPTFLAGS=$(COPTFLAGS) -fno-exceptions \
   -fno-rtti -fno-enforce-eh-specs -fnothrow-opt -fno-use-cxa-get-exception-ptr \
   -fno-implicit-templates -fno-threadsafe-statics -fno-use-cxa-atexit
@@ -41,7 +41,7 @@ CXXFLAGS += -m$(BITS) $(shell pkg-config --cflags sdl2)
 LIBS=-lc
 
 SMOLFLAGS +=
-ASFLAGS   += -DUSE_INTERP -DALIGN_STACK
+ASFLAGS   += -DUSE_INTERP -DUSE_DNLOAD_LOADER -DNO_START_ARG -DUNSAFE_DYNAMIC #-DALIGN_STACK
 #-DUSE_DNLOAD_LOADER #-DUSE_DT_DEBUG #-DUSE_DL_FINI #-DNO_START_ARG #-DUNSAFE_DYNAMIC
 
 NASM    ?= nasm

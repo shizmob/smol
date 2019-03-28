@@ -1,4 +1,4 @@
-; vim: set ft=nasm ts=8:
+; vim: set ft=nasm et:
 
 %include "rtld.inc"
 
@@ -13,29 +13,124 @@
 _smol_start:
 
 %ifdef USE_DL_FINI
-       push edx ; _dl_fini
+   push edx ; _dl_fini
 %endif
-            ; try to get the 'version-agnostic' pffset of the stuff we're
-            ; interested in
+        ; try to get the 'version-agnostic' pffset of the stuff we're
+        ; interested in
 
 %ifdef USE_DT_DEBUG
-        mov eax, [rel _DEBUG]
-        mov eax, [eax + 4]
+    mov eax, [rel _DEBUG]
+    mov eax, [eax + 4]
 %endif
 
 %ifdef SKIP_ENTRIES
-        mov eax, [eax + LM_NEXT_OFFSET] ; skip this binary
-        mov eax, [eax + LM_NEXT_OFFSET] ; skip the vdso
+    mov eax, [eax + LM_NEXT_OFFSET] ; skip this binary
+;   mov eax, [eax + LM_NEXT_OFFSET] ; skip the vdso
 %endif
 
+   push _symbols
+   push eax
+%ifdef USE_DNLOAD_LOADER
+    pop ebp
+    pop edi
+
+    .next_hash:
+        mov ecx, [edi]
+            ; assume it's nonzero
+       push ebp
+        pop edx
+            ; edx: hash
+            ; ebx: link_map* chain
+
+        .next_link:
+;           pop edx
+            mov edx, [edx + L_NEXT_OFF]
+                ; ElfW(Dyn)* dyn(esi) = ebx->l_ld
+            mov esi, [edx + L_LD_OFF]
+
+           push edx
+                ; get strtab off
+            .next_dyn:
+              lodsd
+                cmp al, DT_STRTAB
+              lodsd
+                jne short .next_dyn
+
+                ; void* addr(edx) = ebx->l_addr
+                ; const char* strtab(ebx)=lookup(esi,DT_STRTAB);
+            mov edx, [edx + L_ADDR_OFF]
+            cmp eax, edx
+            jae short .noreldynaddr
+            add eax, edx
+        .noreldynaddr:
+           push eax
+            pop ebx
+
+                ; const ElfW(Sym)* symtab(edx) = lookup(esi, DT_SYMTAB);
+          lodsd ; SYMTAB d_tag
+          lodsd ; SYMTAB d_un
+            cmp eax, edx
+            jae short .norelsymaddr
+            add eax, edx
+        .norelsymaddr:
+           push eax
+            pop edx
+
+        .next_sym:
+            mov esi, [edx + ST_NAME_OFF]
+            add esi, ebx
+
+           push ecx
+           push ebx
+           push 33
+           push 5381
+            pop eax
+            pop ebx
+            xor ecx, ecx
+        .nexthashiter:
+            xchg eax, ecx
+           lodsb
+              or al, al
+            xchg eax, ecx
+              jz short .breakhash
+
+            push edx
+             mul ebx
+             pop edx
+             add eax, ecx
+             jmp short .nexthashiter
+
+        .breakhash:
+            pop ebx
+            pop ecx
+            cmp ecx, eax
+             je short .hasheq
+
+            add edx, SYMTAB_SIZE
+            cmp edx, ebx
+             jb short .next_sym
+            pop edx
+            jmp short .next_link
+
+        .hasheq:
+            mov eax, [edx + ST_VALUE_OFF]
+            pop edx
+            mov esi, [edx + L_ADDR_OFF]
+           ;cmp eax, esi
+           ; jb short .hasheqnorel
+            add eax, esi
+        .hasheqnorel:
+           ;add eax, [edx + L_ADDR_OFF] ; TODO: CONDITIONAL!
+          stosd
+%ifdef USE_JMP_BYTES
+            inc edi ; skip 0xE9 (jmp) offset
+%endif
+            cmp word [edi], 0
+            jne short .next_hash
+
+; if USE_DNLOAD_LOADER
+%else
         mov ebx, eax
-;       mov esi, eax
-;.looper:
-;     lodsd
-;       cmp dword eax, _smol_start
-;       jne short .looper
-;       sub esi, ebx
-;       sub esi, LM_ENTRY_OFFSET_BASE+4 ; +4: take inc-after from lodsd into acct
         mov edi, eax
        push -1
         pop ecx
@@ -140,6 +235,8 @@ link: ; (struct link_map *root, char *symtable)
                         jmp short link.do_symbols
                 inc esi
 link.done:
+; if USE_DNLOAD_LOADER ... else ...
+%endif
 
       ;xor ebp, ebp ; let's put that burden on the user code, so they can leave
                     ; it out if they want to
@@ -147,10 +244,15 @@ link.done:
 %ifdef USE_DL_FINI
        pop edx      ; _dl_fini
 %endif
-       sub esp, 20  ; put the stack where _start (C code) expects it to be
-                    ; this can't be left out, because X needs the envvars
+           ; move esp into eax, *then* increase the stack by 4, as main() 
+           ; expects a return address to be inserted by a call instruction
+           ; (which we don't have, so we're doing a 1-byte fixup instead of a
+           ; 5-byte call)
+      push esp
+       pop eax
+      push eax
+      push eax
 
-;.loopme: jmp short .loopme
       ;jmp short _start
            ; by abusing the linker script, _start ends up right here :)
 

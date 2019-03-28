@@ -29,6 +29,7 @@
 %define PHDR_X (1)
 
 %define DT_NULL   ( 0)
+%define DT_NEEDED ( 1)
 %define DT_STRTAB ( 5)
 %define DT_SYMTAB ( 6)
 %define DT_DEBUG  (21)
@@ -36,6 +37,15 @@
 %define ST_NAME_OFF  ( 0)
 ;  ,---- not 16?
 ; v
-%define ST_VALUE_OFF ( 8)
-%define SYMTAB_SIZE  (24)
+%if __BITS__ == 32
+%define D_UN_PTR_OFF         ( 4)
+%define ST_VALUE_OFF         ( 4)
+%define SYMTAB_SIZE          (16)
+%define ELF_DYN_SZ           ( 8)
+%else
+%define D_UN_PTR_OFF         ( 8)
+%define ST_VALUE_OFF         ( 8)
+%define SYMTAB_SIZE          (24)
+%define ELF_DYN_SZ           (16)
+%endif
 
