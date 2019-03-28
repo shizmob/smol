@@ -19,7 +19,8 @@ ld -T ld/link.ld --oformat=binary -o output.elf nasm-output.o input.o...
 * `ALIGN_STACK`: *64-bit only*: realign the stack so that SSE instructions
   won't segfault. Costs 1 byte.
 * `USE_NX`: Don't use `RWE` segments at all. Not very well tested. Costs the
-  size of 1 phdr.
+  size of 1 phdr, plus some extra stuff on `i386`. Don't forget to pass `-n`
+  to `smol.py` as well.
 * `USE_DL_FINI`: keep track of the `_dl_fini` function and pass it to your
   `_start`. Costs 2 bytes, plus maybe a few more depending on how it's passed
   to `__libc_start_main`.
@@ -29,9 +30,10 @@ ld -T ld/link.ld --oformat=binary -o output.elf nasm-output.o input.o...
   strictly worse size-wise by 10 (i386) or 3 (x86_64) bytes.
 * `SKIP_ENTRIES`: skip the first two entries of the `struct link_map`, which
   represent the main binary and the vDSO. Costs around 5 bytes.
-* `USE_DNLOAD_LOADER`: *64-bit only*: use the symbol loading mechanism as used
-  in dnload (i.e. traverse the symtab of the imported libraries). Slightly
-  larger, but probably better compressable.
+* `USE_DNLOAD_LOADER`: use the symbol loading mechanism as used in dnload (i.e.
+  traverse the symtab of the imported libraries). Slightly larger, but probably
+  better compressable and more compatible with other libcs and future versions
+  of glibc.
 * `NO_START_ARG`: *don't* pass the stack pointer to `_start` as the first arg.
   Will make it unable to read argc/argv/environ, but gives you 3 bytes.
 
@@ -55,6 +57,10 @@ optional arguments:
   --cc CC               which cc binary to use
   --scanelf SCANELF     which scanelf binary to use
   --readelf READELF     which readelf binary to use
+  -n, --nx              Use NX (i.e. don't use RWE pages). Costs the size of
+                        one phdr, plus some extra bytes on i386. Don't forget
+                        to pass -DUSE_NX to the assembly loader as well!
+
 ```
 
 A minimal crt (and `_start` funcion) are provided in case you want to use `main`.

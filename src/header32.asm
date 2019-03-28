@@ -6,7 +6,7 @@
 
 %include "elf.inc"
 
-header:
+ehdr:
     ; e_ident
     db 0x7F, "ELF"
     db EI_CLASS, EI_DATA, EI_VERSION, EI_OSABI
@@ -17,11 +17,11 @@ header:
     dw ELF_MACHINE     ; e_machine: 3 = x86
     dd EI_VERSION      ; e_version
     dd _smol_start     ; e_entry
-    dd (.segments - header) ; e_phoff
+    dd (phdr - ehdr)   ; e_phoff
     dd 0               ; e_shoff
     dd 0               ; e_flags
-    dw (.segments - header) ; e_ehsize
-    dw (.segments.load - .segments.dynamic) ; e_phentsize
+    dw (phdr - ehdr)   ; e_ehsize
+    dw (phdr.load - phdr.dynamic) ; e_phentsize
 %ifdef USE_NX
 %error "USE_NX not supported yet on i386 ('GOT' still needs RWX, and alignment has to be fixed)"
 ;%ifdef USE_INTERP
@@ -47,41 +47,45 @@ header:
 ;    dd (PHDR_R | PHDR_W)
 ;    dd 0x1;000
 %else
-.segments:
+phdr:
 %endif
 %ifdef USE_INTERP
-.segments.interp:
+phdr.interp:
     dd PT_INTERP          ; {e_phnum: 2, e_shentsize: 0}, p_type
-    dd (.interp - header) ; {e_shnum: <junk>, e_shstrnd: <junk>}, p_offset
-    dd .interp, .interp   ; p_vaddr, p_paddr
-    dd (.interp.end-.interp) ; p_filesz
-    dd (.interp.end-.interp) ; p_memsz
+    dd (interp - ehdr)    ; {e_shnum: <junk>, e_shstrnd: <junk>}, p_offset
+    dd interp, interp     ; p_vaddr, p_paddr
+    dd (interp.end-interp); p_filesz
+    dd (interp.end-interp); p_memsz
     dd 0,0                ; p_flags, p_align
 %endif
-.segments.dynamic:
+phdr.dynamic:
     dd PT_DYNAMIC          ; {e_phnum: 2, e_shentsize: 0}, p_type
-    dd (dynamic - header)  ; {e_shnum: <junk>, e_shstrnd: <junk>}, p_offset
+    dd (dynamic - ehdr)    ; {e_shnum: <junk>, e_shstrnd: <junk>}, p_offset
     dd  dynamic, 0         ; p_vaddr, p_paddr
     dd (dynamic.end - dynamic) ; p_filesz
     dd (dynamic.end - dynamic) ; p_memsz
     dd 0, 0                ; p_flags, p_align
 %ifndef USE_NX
-.segments.load:
+phdr.load:
     dd PT_LOAD          ; p_type: 1 = PT_LOAD
     dd 0                ; p_offset
-    dd _smol_origin, 0  ; p_vaddr, p_paddr
+    dd ehdr, 0          ; p_vaddr, p_paddr
     ; use memsize twice here, linux doesn't care and it compresses better
     dd _smol_total_memsize ; p_filesz
     dd _smol_total_memsize ; p_memsz
     dd (PHDR_R | PHDR_W | PHDR_X) ; p_flags
     dd 0x1000           ; p_align
 %endif
-.segments.end:
+phdr.end:
+
 %ifdef USE_INTERP
-.interp:
+[section .rodata.interp]
+interp:
     db "/lib/ld-linux.so.2",0
-.interp.end:
+interp.end:
 %endif
+
+[section .rodata.dynamic]
 global _DYNAMIC
 _DYNAMIC:
 dynamic:
@@ -93,6 +97,7 @@ dynamic.symtab:
     dd DT_SYMTAB ; d_tag: 6 = DT_SYMTAB
     dd 0         ; d_un.d_ptr
 %ifdef USE_DT_DEBUG
+dynamic.debug:
     dd DT_DEBUG
 _DEBUG:
     dd 0

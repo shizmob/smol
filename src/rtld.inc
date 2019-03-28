@@ -1,6 +1,23 @@
 ; vim: set ft=nasm:
 
 %if __BITS__ == 32
+%define L_ADDR_OFF           (   0)
+%define L_NAME_OFF           (   4)
+%define L_LD_OFF             (   8)
+%define L_NEXT_OFF           (0x0C)
+%define L_INFO_OFF           (0x20)
+;%define L_INFO_DT_SYMTAB_OFF ()
+
+%define LF_ENTRY_OFF          (  340)
+%define LF_NBUCKETS_OFF       (0x178)
+%define LF_GNU_BUCKETS_OFF    (0x188)
+%define LF_GNU_CHAIN_ZERO_OFF (0x18C)
+
+%define L_GNU_BUCKETS_SZ      (4)
+%define L_GNU_CHAIN_ZERO_SZ   (4)
+
+; old defs:
+
 %define LM_NAME_OFFSET           0x4
 %define LM_NEXT_OFFSET           0xC
 %define LM_ADDR_OFFSET           0
@@ -18,10 +35,7 @@
 
 %define DT_SYMSIZE_SHIFT         4
 
-%define DT_STRTAB                0x5
-%define DT_SYMTAB                0x6
-
-%else
+%else ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 %define L_ADDR_OFF           (  0)
 %define L_NAME_OFF           (  8)
 %define L_LD_OFF             ( 16)
@@ -37,10 +51,7 @@
 %define L_GNU_BUCKETS_SZ     (  4)
 %define L_GNU_CHAIN_ZERO_SZ  (  4)
 
-%define D_UN_PTR_OFF         (  8)
-%define ST_VALUE_OFF         (  8)
-
-%define ELF_SYM_SZ           ( 24)
-%define ELF_DYN_SZ           ( 16)
 %endif
+
+%define ELF_SYM_SZ           (SYMTAB_SIZE)
 
