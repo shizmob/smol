@@ -1,6 +1,7 @@
 OBJDIR := obj
 BINDIR := bin
-SRCDIR := src
+SRCDIR := rt
+PYDIR  := src
 LDDIR  := ld
 TESTDIR:= test
 
@@ -40,7 +41,7 @@ CXXFLAGS += -m$(BITS) $(shell pkg-config --cflags sdl2)
 
 LIBS=-lc
 
-SMOLFLAGS +=
+SMOLFLAGS += -s
 ASFLAGS   += -DUSE_INTERP -DUSE_DNLOAD_LOADER -DNO_START_ARG -DUNSAFE_DYNAMIC #-DALIGN_STACK
 #-DUSE_DNLOAD_LOADER #-DUSE_DT_DEBUG #-DUSE_DL_FINI #-DNO_START_ARG #-DUNSAFE_DYNAMIC
 
@@ -73,7 +74,7 @@ $(OBJDIR)/%.start.o: $(OBJDIR)/%.lto.o $(OBJDIR)/crt1.lto.o
 	$(CC) $(LDFLAGS) -r -o "$@" $^
 
 $(OBJDIR)/symbols.%.asm: $(OBJDIR)/%.o
-	$(PYTHON3) ./smol.py $(SMOLFLAGS) $(LIBS) "$<" "$@"
+	$(PYTHON3) $(PYDIR)/smol.py $(SMOLFLAGS) $(LIBS) "$<" "$@"
 
 $(OBJDIR)/stub.%.o: $(OBJDIR)/symbols.%.asm $(SRCDIR)/header32.asm \
         $(SRCDIR)/loader32.asm

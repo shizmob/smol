@@ -11,7 +11,7 @@
 
 
 _smol_start:
-
+;.loopme: jmp short .loopme
 %ifdef USE_DL_FINI
    push edx ; _dl_fini
 %endif
@@ -81,28 +81,46 @@ _smol_start:
             add esi, ebx
 
            push ecx
+%ifndef USE_HASH16
            push ebx
            push 33
            push 5381
             pop eax
             pop ebx
+%else
+            xor eax, eax
+%endif
             xor ecx, ecx
         .nexthashiter:
-            xchg eax, ecx
-           lodsb
-              or al, al
-            xchg eax, ecx
-              jz short .breakhash
+                    ;
+               xchg eax, ecx
+              lodsb
+                 or al, al
+               xchg eax, ecx
+                 jz short .breakhash
 
-            push edx
-             mul ebx
-             pop edx
-             add eax, ecx
-             jmp short .nexthashiter
+%ifndef USE_HASH16
+               push edx
+                mul ebx
+                pop edx
+;               add eax, ecx
+%else
+                ror ax, 2
+;               add ax, cx
+%endif
+                add eax, ecx
+                jmp short .nexthashiter
 
         .breakhash:
+%ifndef USE_HASH16
             pop ebx
+%endif
             pop ecx
+;%ifndef USE_HASH16
+;           cmp ecx, eax
+;%else
+;           cmp  cx,  ax
+;%endif
             cmp ecx, eax
              je short .hasheq
 
@@ -244,7 +262,7 @@ link.done:
 %ifdef USE_DL_FINI
        pop edx      ; _dl_fini
 %endif
-           ; move esp into eax, *then* increase the stack by 4, as main() 
+           ; move esp into eax, *then* increase the stack by 4, as main()
            ; expects a return address to be inserted by a call instruction
            ; (which we don't have, so we're doing a 1-byte fixup instead of a
            ; 5-byte call)
