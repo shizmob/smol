@@ -3,11 +3,11 @@ import sys
 
 from smolshared import *
 
-def output_x86(libraries, nx, outf):
+def output_x86(libraries, nx, h16, outf):
     outf.write('; vim: set ft=nasm:\n') # be friendly
 
-    if nx:
-        outf.write('%define USE_NX 1\n')
+    if nx:  outf.write('%define USE_NX 1\n')
+    if h16: outf.write('%define USE_HASH16 1\n')
 
     usedrelocs = set({})
     for library, symrels in libraries.items():
@@ -56,7 +56,7 @@ dynamic.end:
                 eprintf('Relocation type ' + reloc + ' of symbol ' + sym + ' unsupported!')
                 sys.exit(1)
 
-            hash = hash_djb2(sym)
+            hash = hash_bsd2(sym) if h16 else hash_djb2(sym)
             if nx:
                 outf.write("\t\t_symbols.{lib}.{name}: dd 0x{hash:x}"\
                     .format(lib=shorts[library],name=sym,hash=hash).lstrip('\n'))
@@ -87,7 +87,14 @@ global {name}
 # end output_x86
 
 
-def output_amd64(libraries, outf):
+def output_amd64(libraries, nx, h16, outf):
+    if h16:
+        eprintf("--hash16 not supported yet for x86_64 outputs.")
+        exit(1)
+
+    if nx:  outf.write('%define USE_NX 1\n')
+#   if h16: outf.write('%define USE_HASH16 1\n')
+
     outf.write('; vim: set ft=nasm:\n')
     outf.write('bits 64\n')
 
@@ -129,7 +136,7 @@ global {name}
 {name}:
 """.format(name=sym).lstrip('\n'))
 
-            hash = hash_djb2(sym)
+            hash = hash_bsd2(sym) if h16 else hash_djb2(sym)
             outf.write('\t\t_symbols.{lib}.{name}: dq 0x{hash:x}\n'\
                        .format(lib=shorts[library],name=sym,hash=hash))
 
@@ -152,9 +159,9 @@ global {name}
 # end output_amd64
 
 
-def output(arch, libraries, nx, outf):
-    if arch == 'i386': output_x86(libraries, nx, outf)
-    elif arch == 'x86_64': output_amd64(libraries, outf)
+def output(arch, libraries, nx, h16, outf):
+    if arch == 'i386': output_x86(libraries, nx, h16, outf)
+    elif arch == 'x86_64': output_amd64(libraries, nx, h16, outf)
     else:
         eprintf("E: cannot emit for arch '" + str(arch) + "'")
         sys.exit(1)
