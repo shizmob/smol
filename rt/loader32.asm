@@ -133,6 +133,10 @@ _smol_start:
         .hasheq:
             mov eax, [edx + ST_VALUE_OFF]
             pop edx
+%ifdef SKIP_ZERO_VALUE
+             or eax, eax
+             jz short .next_link
+%endif
             mov esi, [edx + L_ADDR_OFF]
            ;cmp eax, esi
            ; jb short .hasheqnorel

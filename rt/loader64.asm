@@ -127,6 +127,10 @@ _smol_start:
 
         .hasheq:
             mov rax, [rdx + ST_VALUE_OFF]
+%ifdef SKIP_ZERO_VALUE
+             or rax, rax
+             jz short .next_link
+%endif
             add rax, [r12 + L_ADDR_OFF]
           stosq
             cmp word [rdi], 0
@@ -215,6 +219,10 @@ repne scasd ; technically, scasq should be used, but meh. this is 1 byte smaller
                 ; ElfW(Addr) symoff(rax) = symtab[bucket].st_value
             lea rdx, [rcx + rcx * 2]
             mov rax, [rax + rdx * 8 + ST_VALUE_OFF]
+%ifdef SKIP_ZERO_VALUE
+             or rax, rax ; zero value => weak symbol or sth
+             jz short .next_link
+%endif
                 ; void* finaladdr(rax) = symoff + entry->l_addr
             add rax, [r12 + L_ADDR_OFF]
 

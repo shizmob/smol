@@ -36,6 +36,10 @@ ld -T ld/link.ld --oformat=binary -o output.elf nasm-output.o input.o...
   of glibc.
 * `NO_START_ARG`: *don't* pass the stack pointer to `_start` as the first arg.
   Will make it unable to read argc/argv/environ, but gives you 3 bytes.
+* `SKIP_ZERO_VALUE`: skip a `Sym` with a `st_value` field of `0`. If this isn't
+  enabled, weak symbols etc. might be imported instead of the real ones,
+  causing breakage. Many libraries don't have weak symbols at all, though.
+  Costs 4 (i386) or 5 (x86_64) bytes.
 
 ```
 usage: smol.py [-h] [-m TARGET] [-l LIB] [-L DIR] [--nasm NASM] [--cc CC]
