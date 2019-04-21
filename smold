@@ -44,7 +44,7 @@ def main():
     for util in ['nasm', 'cc', 'scanelf', 'readelf', 'ld']:
         if not getattr(args, util):
             parser.error('utility "{u}" could not be found! either install it or pass the path with --{u}'
-                .format(util))
+                .format(u=util))
 
     opts = set()
     for opt in args.smol_opt[:]:
