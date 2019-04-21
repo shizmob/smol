@@ -1,5 +1,3 @@
-; vim: set ft=nasm:
-
 %if __BITS__ == 32
 %define LM_NAME_OFFSET           0x4
 %define LM_NEXT_OFFSET           0xC

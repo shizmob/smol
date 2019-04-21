@@ -1,5 +1,3 @@
-; vim: set ft=nasm ts=8:
-
 %include "rtld.inc"
 
 %ifdef ELF_TYPE

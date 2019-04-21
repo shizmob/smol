@@ -8,27 +8,9 @@ import subprocess
 import struct
 import sys
 
-from smolshared import *
+from smol.util import hash_djb2, readint, readstr, error
+from smol.elf import ELFMachine
 
-def readbyte(blob, off):
-    return struct.unpack('<B', blob[off:off+1])[0], (off+1)
-
-def readint(blob, off):
-    return struct.unpack('<I', blob[off:off+4])[0], (off+4)
-
-def readlong(blob, off):
-    return struct.unpack('<Q', blob[off:off+8])[0], (off+8)
-
-def readstr(blob, off):
-    text = bytearray()
-    while True:
-        char, off = readbyte(blob, off)
-        if char == 0:
-            break
-
-        text.append(char)
-
-    return text.decode('utf-8'), off
 
 def get_def_libpaths(cc_bin, is32bit):
     if is32bit:
@@ -37,10 +19,10 @@ def get_def_libpaths(cc_bin, is32bit):
     out = subprocess.check_output([cc_bin, '-print-search-dirs'],
                                      stderr=subprocess.DEVNULL)
 
-    stuff = dict({})
+    stuff = {}
     for l in out.decode('utf-8').splitlines():
-        blah = l.split(': ')
-        stuff[blah[0]] = blah[1].lstrip('=').split(':')
+        cols = l.split(': ')
+        stuff[cols[0]] = cols[1].lstrip('=').split(':')
 
     return stuff["libraries"]
 
@@ -55,14 +37,14 @@ def build_hashtab(scanelf_bin, lib):
     out = subprocess.check_output([scanelf_bin, '-B', '-F', '%s', '-s', '%pd%*', lib],
                                      stderr=subprocess.DEVNULL)
 
-    blah = set(out.decode('utf-8').split('\n'))
-    ret = dict({})
+    lines = set(out.decode('utf-8').split('\n'))
+    ret = {}
 
-    for x in blah:
-        y = x.split()
-        if len(y) != 7:
+    for line in lines:
+        cols = line.split()
+        if len(cols) != 7:
             continue
-        ret[hash_djb2(y[6])] = y[6]
+        ret[hash_djb2(cols[6])] = cols[6]
 
     return ret
 
@@ -79,31 +61,30 @@ def main():
 
     blob = args.input.read()
 
+    bits = blob[4] * 32
     machnum = struct.unpack('<H', blob[18:18+2])[0]
+    try:
+        machine = ELFMachine(machnum)
+    except:
+        error('unknown architecture: {}'.format(machnum))
 
-    is32bit = machnum == archmagic['i386']
-
-    deflibs = get_def_libpaths(args.cc, is32bit)
+    deflibs = get_def_libpaths(args.cc, bits == 32)
 
     phoff, phsz, phnum = 0, 0, 0
-    if is32bit:
+    if bits == 32:
         phoff = struct.unpack('<I', blob[28:28+4])[0]
         phsz  = struct.unpack('<H', blob[42:42+2])[0]
         phnum = struct.unpack('<H', blob[44:52+2])[0]
-    elif machnum == archmagic['x86_64']:
+    elif bits == 64:
         phoff = struct.unpack('<Q', blob[32:32+8])[0]
         phsz  = struct.unpack('<H', blob[54:54+2])[0]
         phnum = struct.unpack('<H', blob[56:56+2])[0]
-    else:
-        eprintf("Unknown architecture " + str(machnum))
-        sys.exit(1)
 
     for i in range(phnum):
         off = phoff + i * phsz
-        #print(hex(off))
 
         ptyp, poff, pva, ppa, pfsz, pmsz, pfl, pal = 0,0,0,0,0,0,0,0
-        if is32bit:
+        if bits == 32:
             ptyp, poff, pva, ppa, pfsz, pmsz, pfl, pal = \
                 struct.unpack('<ILLLIIII', blob[off:off+phsz])
         else:
@@ -113,15 +94,13 @@ def main():
         if ptyp != 2: # PT_DYNAMIC
             continue
 
-        #print(hex(poff))
-
         # right after the dynamic section, the smol 'symtab'/'hashtab' is found
         #
         # note that on i386, every lib name is followed by an E9 byte
         # if the next libname/first byte of the hash is null, the table has
         # come to an end.
 
-        if is32bit:
+        if bits == 32:
             j = poff
             strtaboff = 0
             while j < poff + pfsz:
@@ -159,8 +138,7 @@ def main():
 
             break
         else: # 64-bit
-            eprintf("Currently unsuppored, sorry.")
-            sys.exit(1)
+            error('Currently unsupported, sorry.')
 
 if __name__ == '__main__':
     main()

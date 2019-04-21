@@ -1,5 +1,3 @@
-; vim: set ft=nasm:
-
 extern _smol_origin
 extern _smol_total_size
 extern _smol_text_start

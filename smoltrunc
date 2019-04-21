@@ -16,11 +16,11 @@ def main(argv):
 
     i = 0
     while data[-i - 1] == 0:
-        i = i + 1
+        i += 1
 
-    args.output.write(data[0:len(data)-i])
+    args.output.write(data[:-i])
 
 if __name__ == '__main__':
-    rv = main(sys.argv)
-    exit(0 if rv is None else rv)
+    rv = main(sys.argv) or 0
+    sys.exit(rv)
 

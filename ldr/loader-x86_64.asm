@@ -1,5 +1,3 @@
-; vim: set ft=nasm:
-
 ;%define R10_BIAS (0x2B4)
 %define R10_BIAS (0x2B4+0x40)
 

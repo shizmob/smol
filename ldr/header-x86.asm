@@ -1,5 +1,3 @@
-; vim: set ft=nasm:
-
 %include "linkscr.inc"
 
 [section .header]

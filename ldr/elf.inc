@@ -1,5 +1,3 @@
-; vim: set ft=nasm:
-
 %if __BITS__ == 32
 %define EI_CLASS        (1) ; 1 == 32-bit
 %else
