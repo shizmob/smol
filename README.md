@@ -11,7 +11,7 @@ A functional toolchain, Python 3 and `pax-utils`.
 ## Usage
 
 ```sh
-./smol.py [LDFLAGS...] [--smol-opt=...] -lfoo -lbar input.o -o smol-output
+./smold [LDFLAGS...] [--smol-opt=...] -lfoo -lbar input.o -o smol-output
 ```
 
 Possible `smol-opt`s:
