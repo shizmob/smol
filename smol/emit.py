@@ -72,10 +72,10 @@ dynamic.end:
     outf.write('_symbols:\n')
     for library, symrels in libraries.items():
         for sym, reloc in symrels:
-            if reloc != 'R_X86_64_PLT32' and reloc != 'R_X86_64_GOTPCRELX':
+            if reloc not in ('R_X86_64_PLT32', 'R_X86_64_GOTPCRELX', 'R_X86_64_REX_GOTPCRELX'):
                 error('Relocation type {} of symbol {} unsupported!'.format(reloc, sym))
 
-            if reloc == 'R_X86_64_GOTPCRELX':
+            if reloc in ('R_X86_64_GOTPCRELX', 'R_X86_64_REX_GOTPCRELX'):
                 outf.write("""
 global {name}
 {name}:
