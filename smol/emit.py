@@ -25,8 +25,7 @@ def output_x86(libraries, outf):
         for sym, reloc in symrels:
             # meh
             if reloc != 'R_386_PC32':
-                error('Relocation type ' + reloc + ' of symbol ' + sym + ' unsupported!')
-                sys.exit(1)
+                error('Relocation type {} of symbol {} unsupported!'.format(reloc, sym))
 
             hash = hash_djb2(sym)
             outf.write("""
@@ -74,8 +73,7 @@ dynamic.end:
     for library, symrels in libraries.items():
         for sym, reloc in symrels:
             if reloc != 'R_X86_64_PLT32' and reloc != 'R_X86_64_GOTPCRELX':
-                eprintf('Relocation type ' + reloc + ' of symbol ' + sym + ' unsupported!')
-                sys.exit(1)
+                error('Relocation type {} of symbol {} unsupported!'.format(reloc, sym))
 
             if reloc == 'R_X86_64_GOTPCRELX':
                 outf.write("""
@@ -111,7 +109,5 @@ def output_table(arch, libraries, outf):
     elif arch == ELFMachine.x86_64:
         return output_x86_64(libraries, outf)
     else:
-        error('')
-        eprintf("E: cannot emit for arch '" + str(arch) + "'")
-        sys.exit(1)
+        error('cannot emit for arch {}'.format(arch.name))
 
