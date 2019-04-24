@@ -24,8 +24,9 @@ def main():
 
     parser.add_argument('--smol-opt', metavar='OPT', default=['use_interp'], action='append',
         help='optimization flags for smol')
-    parser.add_argument('--loader-dir', default=path.join(path.dirname(__file__), 'ldr'),
-        help='path to loader files')
+    parser.add_argument('--smol-loader-dir', metavar='DIR',
+        default=path.join(path.dirname(__file__), 'ldr'), help='path to smol loader files')
+
     parser.add_argument('--nasm', default=os.getenv('NASM') or shutil.which('nasm'),
         help='which nasm binary to use')
     parser.add_argument('--ld', default=os.getenv('LD') or shutil.which('ld'),
@@ -91,8 +92,8 @@ def main():
         output_table(arch, symbols, table)
         table.flush()
         try:
-            subprocess.check_call([args.nasm] + as_args + ['-I', args.loader_dir + '/', '-f', 'elf{}'.format(bits), table.name, '-o', tableobj.name])
-            subprocess.check_call([args.ld, '-T', os.path.join(args.loader_dir, 'link.ld'), '--oformat=binary', '-o', args.output, tableobj.name] + ld_args + args.input)
+            subprocess.check_call([args.nasm] + as_args + ['-I', args.smol_loader_dir + '/', '-f', 'elf{}'.format(bits), table.name, '-o', tableobj.name])
+            subprocess.check_call([args.ld, '-T', os.path.join(args.smol_loader_dir, 'link.ld'), '--oformat=binary', '-o', args.output, tableobj.name] + ld_args + args.input)
         except subprocess.CalledProcessError:
             sys.exit(1)
 

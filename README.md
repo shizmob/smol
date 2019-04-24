@@ -39,7 +39,7 @@ Possible `smol-opt`s:
 
 ```
 usage: smold [-h] [-m TARGET] [-l LIB] [-L DIR] [--smol-opt OPT]
-             [--loader-dir LOADER_DIR] [--nasm NASM] [--ld LD] [--cc CC]
+             [--smol-loader-dir DIR] [--nasm NASM] [--ld LD] [--cc CC]
              [--scanelf SCANELF] [--readelf READELF] [-o OUT]
              input [input ...]
 
@@ -54,8 +54,8 @@ optional arguments:
                         libraries to link against
   -L DIR, --libdir DIR  directories to search libraries in
   --smol-opt OPT        optimization flags for smol
-  --loader-dir LOADER_DIR
-                        path to loader files
+  --smol-loader-dir DIR
+                        path to smol loader files
   --nasm NASM           which nasm binary to use
   --ld LD               which ld binary to use
   --cc CC               which cc binary to use
