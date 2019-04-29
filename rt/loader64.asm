@@ -166,7 +166,7 @@ repne scasd ; technically, scasq should be used, but meh. this is 1 byte smaller
        push r14
         pop rbx
 ;       pop r12
-            ; shift left because we don't want to compare the lowest bit
+            ; shift right because we don't want to compare the lowest bit
         shr ebx, 1
 
         .next_link:
@@ -180,7 +180,7 @@ repne scasd ; technically, scasq should be used, but meh. this is 1 byte smaller
             mov ecx, dword [r10 + LF_NBUCKETS_OFF - R10_BIAS]
             div ecx
 
-                ; uint32_t bucket(edx) = entry->l_gnu_buckets[bkt_ind]
+                ; uint32_t bucket(ecx) = entry->l_gnu_buckets[bkt_ind]
             mov r8 , [r10 + LF_GNU_BUCKETS_OFF - R10_BIAS]
             mov ecx, dword [r8 + rdx * 4]
 
@@ -188,7 +188,7 @@ repne scasd ; technically, scasq should be used, but meh. this is 1 byte smaller
 ;         jecxz .next_link
 
             .next_chain:
-                    ; uint32_t luhash(ecx) = entry->l_gnu_chain_zero[bucket] >> 1
+                    ; uint32_t luhash(edx) = entry->l_gnu_chain_zero[bucket] >> 1
                 mov rdx, [r10 + LF_GNU_CHAIN_ZERO_OFF - R10_BIAS]
                 mov edx, dword [rdx + rcx * 4]
 

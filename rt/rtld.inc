@@ -6,7 +6,7 @@
 %define L_LD_OFF             (   8)
 %define L_NEXT_OFF           (0x0C)
 %define L_INFO_OFF           (0x20)
-;%define L_INFO_DT_SYMTAB_OFF ()
+%define L_INFO_DT_SYMTAB_OFF (0x38)
 
 %define LF_ENTRY_OFF          (  340)
 %define LF_NBUCKETS_OFF       (0x178)

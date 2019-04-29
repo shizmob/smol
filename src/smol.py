@@ -32,7 +32,7 @@ def main():
 
     parser.add_argument('-s', '--hash16', default=False, action='store_true', \
         help="Use 16-bit (BSD) hashes instead of 32-bit djb2 hashes. "\
-            +"Conflicts with -DUSE_DNLOAD_LOADER")
+            +"Must be used with -DUSE_DNLOAD_LOADER")
 #   parser.add_argument('-d', '--dnload', default=False, action='store_true', \
 #       help="Use dnload's mechanism of importing functions. Slightly larger, but usually better compressable.")
 #   parser.add_argument('--libsep', default=False, action='store_true', \
