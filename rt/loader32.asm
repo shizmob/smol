@@ -2,6 +2,9 @@
 
 %include "rtld.inc"
 
+; TODO
+%define R10_BIAS (0)
+
 %ifdef ELF_TYPE
 [section .text.startup.smol]
 %else
@@ -9,9 +12,14 @@
 [section .text]
 %endif
 
+%ifndef USE_DNLOAD_LOADER
+_smol_linkmap:
+    dd 0
+_smol_linkoff:
+    dd 0
+%endif
 
 _smol_start:
-;.loopme: jmp short .loopme
 %ifdef USE_DL_FINI
    push edx ; _dl_fini
 %endif
@@ -28,9 +36,14 @@ _smol_start:
 ;   mov eax, [eax + LM_NEXT_OFFSET] ; skip the vdso
 %endif
 
+%ifdef USE_JMP_BYTES
+   push _symbols+1
+%else
    push _symbols
-   push eax
+%endif
+
 %ifdef USE_DNLOAD_LOADER
+    ; TODO: borked!
     pop ebp
     pop edi
 
@@ -152,6 +165,10 @@ _smol_start:
 
 ; if USE_DNLOAD_LOADER
 %else
+;.loopme: jmp short .loopme
+
+        mov [_smol_linkmap], eax
+
         mov ebx, eax
         mov edi, eax
        push -1
@@ -160,103 +177,79 @@ _smol_start:
 repne scasd
         sub edi, ebx
         sub edi, LM_ENTRY_OFFSET_BASE+4
+        mov [_smol_linkoff], edi
 
-       xchg ebp, ebx
-       xchg ebx, edi;esi
-        mov esi, _symbols
+        pop edi ; _symbols
 
-link: ; (struct link_map *root, char *symtable)
-.do_library:          ; null library name means end of symbol table, we're done
-              cmp byte [esi], 0
-               jz .done
-.find_map_entry:            ; compare basename(entry->l_name) to lib name, if so we got a match
-                   push esi
-                    mov esi, [ebp + LM_NAME_OFFSET]
+            ; edi: _symbols
+            ; ebp: link_map* root
+           push ecx
+    .next_hash:
+            pop ecx
+            mov ecx, [edi]
 
-.basename: ; (const char *s (esi))
-                            mov edi, esi
-                    .basename.cmp:
-                          lodsb
-                            cmp al, '/'
-                          cmove edi, esi
-                             or al, al
-                            jnz short .basename.cmp
-                    .basename.done:
-                            pop esi
-.basename.end:
+            mov ebp, [_smol_linkmap]
+                ; ecx: hash (assumed nonzero)
+                ; ebp: link_map* chain
 
-.strcmp: ; (const char *s1 (esi), const char *s2 (edi))
-                           push esi
-                           push edi
-                    .strcmp.cmp:
-                          lodsb
-                             or al, al
-                             jz short .strcmp.done
-                            sub al, [edi]
-                            jnz short .strcmp.done
-                            inc edi
-                            jmp short .strcmp.cmp
-                    .strcmp.done:
-                            pop edi
-                            pop esi
-.strcmp.end:
+               push ecx
+        .next_link:
+                pop ecx
+                mov ebp, [ebp + L_NEXT_OFF]
+                mov esi, ebp
+                add esi, [_smol_linkoff]
 
+                    ; edx: btk_ind
+               push ecx
+               push ecx
+               push ecx
+                pop eax
+                mov ecx, [esi + LF_NBUCKETS_OFF]
+                xor edx, edx
+                div ecx
+                pop ecx
+                shr ecx, 1
 
-                         jz short .process_map_entry
-                            ; no match, next entry it is!
-                        mov ebp, [ebp + LM_NEXT_OFFSET]
-                        jmp short .find_map_entry
-.process_map_entry:         ; skip past the name in the symbol table now to get to the symbols
-                      lodsb
-                         or al, al
-                        jnz short .process_map_entry
+                    ; ebx: bucket
+                mov ebx, [esi + LF_GNU_BUCKETS_OFF]
+                mov ebx, [ebx + edx * 4]
 
-.do_symbols:                ; null byte means end of symbols for this library!
-                      lodsb
-                       test al, al
-                         jz short .do_library
-                       push ebx
-                       xchg ebx, edi
+                .next_chain:
+                        ; edx: luhash
+                    mov edx, [esi + LF_GNU_CHAIN_ZERO_OFF]
+                    mov edx, [edx + ebx * 4]
 
-                    link_symbol: ; (struct link_map *entry, uint32_t *h)
-                            mov ecx, esi
+                        ; ecx: hash
+                    mov al, dl
 
-                                ; eax = *h % entry->l_nbuckets
-                            mov eax, [ecx]
-                            xor edx, edx
-                            mov ebx, [ebp + edi + LM_NBUCKETS_OFFSET]
-                            div ebx
-                                ; eax = entry->l_gnu_buckets[edx]
-                            mov eax, [ebp + edi + LM_GNU_BUCKETS_OFFSET]
-                            mov eax, [eax + edx * 4]
-                                ; *h |= 1
-                             or word [ecx], 1
-                    .check_bucket:      ; edx = entry->l_gnu_chain_zero[eax] | 1
-                                    mov edx, [ebp + edi + LM_GNU_CHAIN_ZERO_OFFSET]
-                                    mov edx, [edx + eax * 4]
-                                     or edx, 1
-                                        ; check if this is our symbol
-                                    cmp edx, [ecx]
-                                     je short .found
-                                    inc eax
-                                    jmp short .check_bucket
-                    .found:     ; it is! edx = entry->l_info[DT_SYMTAB]->d_un.d_ptr
-                            mov edx, [ebp + LM_INFO_OFFSET + DT_SYMTAB * 4]
-                            mov edx, [edx + DYN_PTR_OFFSET]
-                                ; edx = edx[eax].dt_value + entry->l_addr
-                            shl eax, DT_SYMSIZE_SHIFT
-                            mov edx, [edx + eax + DT_VALUE_OFFSET]
-                            add edx, [ebp + LM_ADDR_OFFSET]
-                            sub edx, ecx
-                            sub edx, 4
-                                ; finally, write it back!
-                            mov [ecx], edx
+                    shr edx, 1
+                    cmp edx, ecx
+                     je short .chain_break
 
-                        pop ebx
-                        add esi, 4
-                        jmp short link.do_symbols
-                inc esi
-link.done:
+                    and al, 1
+                    jnz short .next_link
+
+                    inc ebx
+                    jmp short .next_chain
+
+            .chain_break:
+                mov eax, [ebp + L_INFO_DT_SYMTAB_OFF]
+                mov eax, [eax + D_UN_PTR_OFF]
+                lea eax, [eax + ebx * 8]
+                mov eax, [eax + ebx * 8 + ST_VALUE_OFF]
+%ifdef SKIP_ZERO_VALUE
+                 or eax, eax
+                 jz short .next_link
+%endif
+
+                add eax, [ebp + L_ADDR_OFF]
+              stosd
+%ifdef USE_JMP_BYTES
+                inc edi
+%endif
+                cmp word [edi], 0
+                jne short .next_hash
+
 ; if USE_DNLOAD_LOADER ... else ...
 %endif
 

@@ -35,7 +35,7 @@
 %define DT_DEBUG  (21)
 
 %define ST_NAME_OFF  ( 0)
-;  ,---- not 16?
+;  ,---- not 16? ; what's this comment??!
 ; v
 %if __BITS__ == 32
 %define D_UN_PTR_OFF         ( 4)
