@@ -2,8 +2,7 @@
 
 %include "rtld.inc"
 
-; TODO
-%define R10_BIAS (0)
+%define R10_BIAS (0x178)
 
 %ifdef ELF_TYPE
 [section .text.startup.smol]
@@ -43,7 +42,7 @@ _smol_start:
 %endif
 
 %ifdef USE_DNLOAD_LOADER
-    ; TODO: borked!
+   push eax
     pop ebp
     pop edi
 
@@ -165,7 +164,6 @@ _smol_start:
 
 ; if USE_DNLOAD_LOADER
 %else
-;.loopme: jmp short .loopme
 
         mov [_smol_linkmap], eax
 
@@ -176,7 +174,8 @@ _smol_start:
         mov eax, _smol_start
 repne scasd
         sub edi, ebx
-        sub edi, LM_ENTRY_OFFSET_BASE+4
+       ;sub edi, LM_ENTRY_OFFSET_BASE+4-R10_BIAS
+        add edi, R10_BIAS-LM_ENTRY_OFFSET_BASE-4
         mov [_smol_linkoff], edi
 
         pop edi ; _symbols
@@ -204,19 +203,19 @@ repne scasd
                push ecx
                push ecx
                 pop eax
-                mov ecx, [esi + LF_NBUCKETS_OFF]
+                mov ecx, [esi + LF_NBUCKETS_OFF - R10_BIAS]
                 xor edx, edx
                 div ecx
                 pop ecx
                 shr ecx, 1
 
                     ; ebx: bucket
-                mov ebx, [esi + LF_GNU_BUCKETS_OFF]
+                mov ebx, [esi + LF_GNU_BUCKETS_OFF - R10_BIAS]
                 mov ebx, [ebx + edx * 4]
 
                 .next_chain:
                         ; edx: luhash
-                    mov edx, [esi + LF_GNU_CHAIN_ZERO_OFF]
+                    mov edx, [esi + LF_GNU_CHAIN_ZERO_OFF - R10_BIAS]
                     mov edx, [edx + ebx * 4]
 
                         ; ecx: hash
@@ -249,6 +248,8 @@ repne scasd
 %endif
                 cmp word [edi], 0
                 jne short .next_hash
+
+       pop eax ; get rid of leftover ecx on stack
 
 ; if USE_DNLOAD_LOADER ... else ...
 %endif
