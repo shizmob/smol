@@ -86,6 +86,8 @@ def get_cc_paths(cc_bin):
 
     outputpairs = list(map(format_cc_path_line,
                            output.decode('utf-8').splitlines()))
+    paths = {}
+
     for category, path in outputpairs: paths[category] = path
 
     if 'libraries' not in paths: # probably localized... sigh
