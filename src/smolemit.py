@@ -126,12 +126,13 @@ dynamic.end:
     outf.write('_symbols:\n')
     for library, symrels in libraries.items():
         for sym, reloc in symrels:
-            if reloc != 'R_X86_64_PLT32' and reloc != 'R_X86_64_GOTPCRELX' \
-                    and reloc != 'R_X86_64_REX_GOTPCRELX':
+            if reloc not in ['R_X86_64_PLT32', 'R_X86_64_GOTPCRELX', \
+                             'R_X86_64_REX_GOTPCRELX', 'R_X86_64_GOTPCREL']:
                 eprintf('Relocation type ' + reloc + ' of symbol ' + sym + ' unsupported!')
                 sys.exit(1)
 
-            if reloc == 'R_X86_64_GOTPCRELX' or reloc == 'R_X86_64_REX_GOTPCRELX':
+            if reloc in ['R_X86_64_GOTPCRELX', 'R_X86_64_REX_GOTPCRELX', \
+                         'R_X86_64_GOTPCREL']:
                 outf.write("""
 global {name}
 {name}:
