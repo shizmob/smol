@@ -71,15 +71,30 @@ def get_needed_syms(readelf_bin, inpfiles):
 
     return syms#, needgot
 
+def format_cc_path_line(entry):
+    category, path = entry.split(': ', 1)
+    path = path.lstrip('=')
+    return (category, list(set(os.path.realpath(p) \
+        for p in path.split(':') if os.path.isdir(p))))
+
 def get_cc_paths(cc_bin):
+    bak = os.environ.copy()
+    os.environ['LANG'] = "C" # DON'T output localized search dirs!
     output = subprocess.check_output([cc_bin, '-print-search-dirs'],
                                      stderr=subprocess.DEVNULL)
-    paths = {}
-    for entry in output.decode('utf-8').splitlines():
-        category, path = entry.split(': ', 1)
-        path = path.lstrip('=')
-        paths[category] = list(set(os.path.realpath(p) \
-                for p in path.split(':') if os.path.isdir(p)))
+    os.environ = bak
+
+    outputpairs = list(map(format_cc_path_line,
+                           output.decode('utf-8').splitlines()))
+    for category, path in outputpairs: paths[category] = path
+
+    if 'libraries' not in paths: # probably localized... sigh
+        # monkeypatch, assuming order...
+        paths = {}
+        paths['install'  ] = outputpairs[0][1]
+        paths['programs' ] = outputpairs[1][1]
+        paths['libraries'] = outputpairs[2][1]
+
     return paths
 
 def is_valid_elf(f):
