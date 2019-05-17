@@ -4,6 +4,13 @@ Shoddy minsize-oriented linker
 
 PoC by Shiz, bugfixing and 64-bit version by PoroCYon.
 
+## Dependencies
+
+* A C compiler (preferably GCC), GNU ld, binutils, GNU make, ...
+* nasm
+* scanelf from pax-utils
+* Python 3
+
 ## Usage
 
 ```sh
