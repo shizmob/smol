@@ -63,7 +63,7 @@ phdr.load:
     dd PHDR_R | PHDR_W | PHDR_X ; p_flags
     dq 0                ; p_offset
     dq ehdr, 0          ; p_vaddr, p_paddr
-    dq _smol_total_memsize ; p_filesz
+    dq _smol_total_filesize ; p_filesz
     dq _smol_total_memsize ; p_memsz
     dq 0x1000           ; p_align
 %else
@@ -80,7 +80,7 @@ phdr.load2:
     dd PHDR_R | PHDR_W
     dq _smol_data_off
     dq _smol_data_start, 0
-    dq _smol_dataandbss_size
+    dq _smol_data_size
     dq _smol_dataandbss_size
     dq 0x1000
 %endif
