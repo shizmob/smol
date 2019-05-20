@@ -70,8 +70,9 @@ phdr.load:
     dd PT_LOAD          ; p_type: 1 = PT_LOAD
     dd 0                ; p_offset
     dd ehdr, 0          ; p_vaddr, p_paddr
-    ; use memsize twice here, linux doesn't care and it compresses better
-    dd _smol_total_memsize ; p_filesz
+    ;; use memsize twice here, linux doesn't care and it compresses better
+    ; actually, linux doesn't care, but the hardware does >__>
+    dd _smol_total_filesize ; p_filesz
     dd _smol_total_memsize ; p_memsz
     dd (PHDR_R | PHDR_W | PHDR_X) ; p_flags
     dd 0x1000           ; p_align
