@@ -1,13 +1,33 @@
 
 import sys
+from collections import OrderedDict
 
 from smolshared import *
 
-def output_x86(libraries, nx, h16, outf):
+def sort_imports(libraries, hashfn):
+    #eprintf("in: " + str(libraries))
+
+    # sort libs by name length
+    ll = sorted(libraries.items(), key=lambda ls: len(ls[0]))
+
+    for i in range(len(ll)):
+        # sort symbols by hash value
+        ll[i] = (ll[i][0], sorted(ll[i][1], key=lambda sr: hashfn(sr[0])))
+
+    #eprintf("out:" + str(dict(ll)))
+
+    # insertion order only works with python >=3.6!
+    if sys.version_info < (3, 6): return OrderedDict(ll)
+    else: return dict(ll)
+
+def output_x86(libraries, nx, h16, outf, det):
     outf.write('; vim: set ft=nasm:\n') # be friendly
 
     if nx:  outf.write('%define USE_NX 1\n')
     if h16: outf.write('%define USE_HASH16 1\n')
+
+    hashfn = hash_bsd2 if h16 else hash_djb2
+    if det: libraries = sort_imports(libraries, hashfn)
 
     usedrelocs = set({})
     for library, symrels in libraries.items():
@@ -56,16 +76,15 @@ dynamic.end:
                 eprintf('Relocation type ' + reloc + ' of symbol ' + sym + ' unsupported!')
                 sys.exit(1)
 
-            hash = hash_bsd2(sym) if h16 else hash_djb2(sym)
             if nx:
                 outf.write("\t\t_symbols.{lib}.{name}: dd 0x{hash:x}"\
-                    .format(lib=shorts[library],name=sym,hash=hash).lstrip('\n'))
+                    .format(lib=shorts[library],name=sym,hash=hashfn(sym)).lstrip('\n'))
             else:
                 outf.write(("""\
 \t\tglobal {name}
 \t\t{name}:""" + ("\n\t\t\tdb 0xE9" if use_jmp_bytes else '') + """
 \t\t\tdd 0x{hash:x}
-""").format(name=sym, hash=hash).lstrip('\n'))
+""").format(name=sym, hash=hashfn(sym)).lstrip('\n'))
 
     outf.write('db 0\n')
     outf.write('_symbols.end:\n')
@@ -87,13 +106,16 @@ global {name}
 # end output_x86
 
 
-def output_amd64(libraries, nx, h16, outf):
+def output_amd64(libraries, nx, h16, outf, det):
     if h16:
         eprintf("--hash16 not supported yet for x86_64 outputs.")
         exit(1)
 
     if nx:  outf.write('%define USE_NX 1\n')
 #   if h16: outf.write('%define USE_HASH16 1\n')
+
+    hashfn = hash_djb2 #hash_bsd2 if h16 else hash_djb2
+    if det: libraries = sort_imports(libraries, hashfn)
 
     outf.write('; vim: set ft=nasm:\n')
     outf.write('bits 64\n')
@@ -138,9 +160,8 @@ global {name}
 {name}:
 """.format(name=sym).lstrip('\n'))
 
-            hash = hash_bsd2(sym) if h16 else hash_djb2(sym)
             outf.write('\t\t_symbols.{lib}.{name}: dq 0x{hash:x}\n'\
-                       .format(lib=shorts[library],name=sym,hash=hash))
+                       .format(lib=shorts[library],name=sym,hash=hashfn(sym)))
 
     outf.write('db 0\n')
     outf.write('_symbols.end:\n')
@@ -161,9 +182,9 @@ global {name}
 # end output_amd64
 
 
-def output(arch, libraries, nx, h16, outf):
-    if arch == 'i386': output_x86(libraries, nx, h16, outf)
-    elif arch == 'x86_64': output_amd64(libraries, nx, h16, outf)
+def output(arch, libraries, nx, h16, outf, det):
+    if arch == 'i386': output_x86(libraries, nx, h16, outf, det)
+    elif arch == 'x86_64': output_amd64(libraries, nx, h16, outf, det)
     else:
         eprintf("E: cannot emit for arch '" + str(arch) + "'")
         sys.exit(1)
