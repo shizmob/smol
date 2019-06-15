@@ -7,8 +7,8 @@ from smolshared import *
 def sort_imports(libraries, hashfn):
     #eprintf("in: " + str(libraries))
 
-    # sort libs by name length
-    ll = sorted(libraries.items(), key=lambda ls: len(ls[0]))
+    # sort libs by name length, then by name
+    ll = sorted(libraries.items(), key=lambda ls: (len(ls[0]), ls[0]))
 
     for i in range(len(ll)):
         # sort symbols by hash value
