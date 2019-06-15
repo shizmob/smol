@@ -33,13 +33,12 @@ def main():
     parser.add_argument('-s', '--hash16', default=False, action='store_true', \
         help="Use 16-bit (BSD) hashes instead of 32-bit djb2 hashes. "\
             +"Must be used with -DUSE_DNLOAD_LOADER")
-#   parser.add_argument('-d', '--dnload', default=False, action='store_true', \
-#       help="Use dnload's mechanism of importing functions. Slightly larger, but usually better compressable.")
-#   parser.add_argument('--libsep', default=False, action='store_true', \
-#       help="Separete import symbols per library, instead of looking at every library when resolving a symbol.")
     parser.add_argument('-n', '--nx', default=False, action='store_true', \
         help="Use NX (i.e. don't use RWE pages). Costs the size of one phdr, "\
         +"plus some extra bytes on i386.")
+    parser.add_argument('-d', '--det', default=False, action='store_true', \
+        help="Make the order of imports deterministic (default: just use on "+\
+        "whatever binutils throws at us)")
 
     parser.add_argument('input', nargs='+', help="input object file")
     parser.add_argument('output', type=argparse.FileType('w'), \
@@ -72,7 +71,7 @@ def main():
         symbols.setdefault(library, [])
         symbols[library].append((symbol, reloc))
 
-    output(arch, symbols, args.nx, args.hash16, args.output)
+    output(arch, symbols, args.nx, args.hash16, args.output, args.det)
 
 if __name__ == '__main__':
     main()
