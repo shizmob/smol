@@ -56,10 +56,16 @@ def get_needed_syms(readelf_bin, inpfiles):
 
     relocs = build_reloc_typ_table(outrel)
 
+    curfile = inpfiles[0]
     syms=set({})
     for entry in output.decode('utf-8').splitlines():
         stuff = entry.split()
+        if len(stuff)<2: continue
+        if stuff[0] == "File:": curfile = stuff[1]
         if len(stuff)<8: continue
+        if stuff[7].startswith("__gnu_lto_"): # yikes, an LTO object
+            eprintf("{} is an LTO object file, can't use this!".format(curfile))
+            exit(1)
         if stuff[4] == "GLOBAL" and stuff[6] == "UND" and len(stuff[7])>0 \
                 and stuff[7] in relocs:
             syms.add((stuff[7], relocs[stuff[7]]))

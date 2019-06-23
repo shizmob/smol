@@ -58,6 +58,12 @@ clean:
 %/:
 	@mkdir -vp "$@"
 
+ifneq ($(findstring (GCC) 9,$(shell $(CC) --version)),)
+INCLINKOPT := -flinker-output=nolto-rel
+else
+INCLINKOPT :=
+endif
+
 .SECONDARY:
 
 $(OBJDIR)/%.lto.o: $(SRCDIR)/%.c $(OBJDIR)/
@@ -71,7 +77,7 @@ $(OBJDIR)/%.o: $(TESTDIR)/%.c $(OBJDIR)/
 	$(CC) $(CFLAGS) -c "$<" -o "$@"
 
 $(OBJDIR)/%.start.o: $(OBJDIR)/%.lto.o $(OBJDIR)/crt1.lto.o
-	$(CC) $(LDFLAGS) -r -o "$@" $^
+	$(CC) $(LDFLAGS) -r $(INCLINKOPT) -o "$@" $^
 
 $(OBJDIR)/symbols.%.asm: $(OBJDIR)/%.o
 	$(PYTHON3) $(PYDIR)/smol.py $(SMOLFLAGS) $(LIBS) "$<" "$@"
