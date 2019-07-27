@@ -7,7 +7,7 @@ PoC by Shiz, bugfixing and 64-bit version by PoroCYon.
 ## Dependencies
 
 * A C compiler (preferably GCC), GNU ld, binutils, GNU make, ...
-* nasm
+* nasm 2.13 or newer
 * scanelf from pax-utils
 * Python 3
 
