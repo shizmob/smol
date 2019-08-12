@@ -19,6 +19,8 @@ _smol_linkoff:
 %endif
 
 _smol_start:
+   mov eax, [esp - 32] ; ???
+
 %ifdef USE_DL_FINI
    push edx ; _dl_fini
 %endif
