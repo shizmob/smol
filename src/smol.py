@@ -46,6 +46,13 @@ def main():
 
     args = parser.parse_args()
 
+    for x in ['nasm','cc','scanelf','readelf']:
+        val = args.__dict__[x]
+        if val is None or not os.path.isfile(val):
+            eprintf("'" + x + "' binary" + (" " if val is None
+                                            else " ('" + val + "')") + " not found")
+            sys.exit(1)
+
     if args.libdir is None: args.libdir = []
     arch = args.target.tolower() if len(args.target)!=0 \
                                  else decide_arch(args.input)
