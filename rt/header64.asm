@@ -6,6 +6,8 @@
 
 %include "elf.inc"
 
+global _EHDR
+_EHDR:
 ehdr:
     ; e_ident
     db 0x7F, "ELF"
@@ -32,6 +34,8 @@ ehdr:
 ehdr.end:
 %endif
 
+global _PHDR
+_PHDR:
 phdr:
 %ifdef USE_INTERP
 phdr.interp:
@@ -88,6 +92,8 @@ phdr.end:
 
 %ifdef USE_INTERP
 [section .rodata.interp]
+global _INTERP
+_INTERP:
 interp:
     db "/lib64/ld-linux-x86-64.so.2", 0
 interp.end:

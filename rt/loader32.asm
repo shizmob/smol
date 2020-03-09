@@ -12,12 +12,15 @@
 %endif
 
 %ifndef USE_DNLOAD_LOADER
+global _smol_priv_data
+_smol_priv_data:
 _smol_linkmap:
     dd 0
 _smol_linkoff:
     dd 0
 %endif
 
+global _smol_start
 _smol_start:
    mov eax, [esp - 32] ; ???
 
@@ -273,4 +276,8 @@ repne scasd
 
       ;jmp short _start
            ; by abusing the linker script, _start ends up right here :)
+%ifdef ELF_TYPE
+global _smol_rt_end:
+_smol_rt_end:
+%endif
 
