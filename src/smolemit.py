@@ -60,6 +60,7 @@ dynamic.end:
 """)
 
     outf.write('[section .rodata.neededlibs]\n')
+    outf.write('global _strtab\n')
     outf.write('_strtab:\n')
     for library, symrels in libraries.items():
         outf.write('\t_symbols.{}: db "{}",0\n'.format(shorts[library], library))
@@ -68,6 +69,7 @@ dynamic.end:
     if not nx:
         outf.write('[section .text.smolplt]\n')
 
+    outf.write('global _symbols\n')
     outf.write('_symbols:\n')
     for library, symrels in libraries.items():
         for sym, reloc in symrels:
@@ -90,6 +92,7 @@ dynamic.end:
     outf.write('_symbols.end:\n')
 
     if nx:
+        outf.write('global _smolplt\n')
         outf.write('_smolplt:\n')
         for library, symrels in libraries.items():
             for sym, reloc in symrels:
@@ -139,12 +142,14 @@ dynamic.end:
 
     outf.write('[section .rodata.neededlibs]\n')
 
+    outf.write('global _strtab\n')
     outf.write('_strtab:\n')
     for library, symrels in libraries.items():
         outf.write('\t_symbols.{}: db "{}",0\n'.format(shorts[library], library))
 
     outf.write('[section .data.smolgot]\n')
 
+    outf.write('global _symbols\n')
     outf.write('_symbols:\n')
     for library, symrels in libraries.items():
         for sym, reloc in symrels:
@@ -166,6 +171,7 @@ global {name}
     outf.write('db 0\n')
     outf.write('_symbols.end:\n')
 
+    outf.write('global _smolplt\n')
     outf.write('_smolplt:\n')
     for library, symrels in libraries.items():
         for sym, reloc in symrels:

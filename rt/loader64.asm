@@ -23,6 +23,7 @@ extern _symbols
 global _start
 _start:
 %endif
+global _smol_start:
 _smol_start:
 %ifdef USE_DL_FINI
    xchg r13, rdx ; _dl_fini
@@ -250,5 +251,9 @@ repne scasd ; technically, scasq should be used, but meh. this is 1 byte smaller
    xchg rsi, r13 ; _dl_fini
 %endif
         ; fallthru to _start
+%ifdef ELF_TYPE
+global _smol_rt_end:
+_smol_rt_end:
+%endif
 
 ;.loopme: jmp short .loopme
