@@ -105,7 +105,7 @@ def get_cc_paths(cc_bin):
 
     return paths
 
-def is_valid_elf(f):
+def is_valid_elf(f): # Good Enough(tm)
     with open(f, 'rb') as ff: return ff.read(4) == b'\x7FELF'
 
 def find_lib(spaths, wanted):
