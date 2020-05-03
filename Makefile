@@ -14,7 +14,8 @@ BITS ?= $(shell getconf LONG_BIT)
 
 COPTFLAGS=-Os -fno-plt -fno-stack-protector -fno-stack-check -fno-unwind-tables \
   -fno-asynchronous-unwind-tables -fomit-frame-pointer -ffast-math -no-pie \
-  -fno-pic -fno-PIE -m64 -march=core2 -ffunction-sections -fdata-sections -fno-plt
+  -fno-pic -fno-PIE -ffunction-sections -fdata-sections -fno-plt \
+  -fmerge-all-constants -mno-fancy-math-387 -mno-ieee-fp
 CXXOPTFLAGS=$(COPTFLAGS) -fno-exceptions \
   -fno-rtti -fno-enforce-eh-specs -fnothrow-opt -fno-use-cxa-get-exception-ptr \
   -fno-implicit-templates -fno-threadsafe-statics -fno-use-cxa-atexit
@@ -25,10 +26,15 @@ CXXFLAGS=-Wall -Wextra -Wpedantic -std=c++11 $(CXXOPTFLAGS) -nostartfiles -fno-P
 ASFLAGS=-I $(SRCDIR)/
 LDFLAGS_ :=
 ifeq ($(BITS),32)
+# I think prescott is basically nocona but 32-bit only, althought I'm not sure
+# if this one is optimal
+CFLAGS += -m32 -march=prescott
 LDFLAGS += -m32
 ASFLAGS += -f elf32
 LDFLAGS_ := -m32
 else
+# I've heard nocona gets slightly smaller binaries than core2
+CFLAGS += -m64 -march=nocona
 LDFLAGS += -m64
 ASFLAGS += -f elf64
 LDFLAGS_ := -m64
