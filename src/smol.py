@@ -69,6 +69,7 @@ def main():
     libnames = args.library
     libs = list(find_libs(spaths, libnames))
     symbols = {}
+    #print("libs = " + str(libs))
 
     for symbol, reloc in syms:
         library = find_symbol(args.scanelf, libs, libnames, symbol)

@@ -64,10 +64,15 @@ clean:
 %/:
 	@mkdir -vp "$@"
 
+# TODO: handle this in a more graceful and future-proof way!
 ifneq ($(findstring (GCC) 9,$(shell $(CC) --version)),)
 INCLINKOPT := -flinker-output=nolto-rel
 else
+ifneq ($(findstring (GCC) 10,$(shell $(CC) --version)),)
+INCLINKOPT := -flinker-output=nolto-rel
+else
 INCLINKOPT :=
+endif
 endif
 
 .SECONDARY:
