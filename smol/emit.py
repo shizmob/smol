@@ -2,7 +2,7 @@
 import sys
 from collections import OrderedDict
 
-from smolshared import *
+from .shared import *
 
 def sort_imports(libraries, hashfn):
     #eprintf("in: " + str(libraries))
@@ -34,9 +34,8 @@ def output_x86(libraries, nx, h16, outf, det):
         for sym, reloc in symrels: usedrelocs.add(reloc)
 
     if not(nx) and 'R_386_PC32' in usedrelocs and 'R_386_GOT32X' in usedrelocs:
-        eprintf("Using a mix of R_386_PC32 and R_386_GOT32X relocations! "+\
+        error("Using a mix of R_386_PC32 and R_386_GOT32X relocations! "+\
                 "Please change a few C compiler flags and recompile your code.")
-        exit(1)
 
 
     use_jmp_bytes = not nx and 'R_386_PC32' in usedrelocs
@@ -111,8 +110,7 @@ global {name}
 
 def output_amd64(libraries, nx, h16, outf, det):
     if h16:
-        eprintf("--hash16 not supported yet for x86_64 outputs.")
-        exit(1)
+        error("--hash16 not supported yet for x86_64 outputs.")
 
     if nx:  outf.write('%define USE_NX 1\n')
 #   if h16: outf.write('%define USE_HASH16 1\n')
@@ -155,8 +153,7 @@ dynamic.end:
         for sym, reloc in symrels:
             if reloc not in ['R_X86_64_PLT32', 'R_X86_64_GOTPCRELX', \
                              'R_X86_64_REX_GOTPCRELX', 'R_X86_64_GOTPCREL']:
-                eprintf('Relocation type ' + reloc + ' of symbol ' + sym + ' unsupported!')
-                sys.exit(1)
+                error('Relocation type ' + reloc + ' of symbol ' + sym + ' unsupported!')
 
             if reloc in ['R_X86_64_GOTPCRELX', 'R_X86_64_REX_GOTPCRELX', \
                          'R_X86_64_GOTPCREL']:
@@ -192,6 +189,5 @@ def output(arch, libraries, nx, h16, outf, det):
     if arch == 'i386': output_x86(libraries, nx, h16, outf, det)
     elif arch == 'x86_64': output_amd64(libraries, nx, h16, outf, det)
     else:
-        eprintf("E: cannot emit for arch '" + str(arch) + "'")
-        sys.exit(1)
+        error("E: cannot emit for arch '" + str(arch) + "'")
 

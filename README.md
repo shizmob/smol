@@ -6,56 +6,33 @@ PoC by Shiz, bugfixing and 64-bit version by PoroCYon.
 
 ## Dependencies
 
-* A C compiler (preferably GCC), GNU ld, binutils, GNU make, ...
+* GCC (not clang, as the latter doesn't support `nolto-rel` output), GNU ld,
+  binutils, GNU make, ...
 * nasm 2.13 or newer
-* scanelf from pax-utils
+* `scanelf` from `pax-utils`
 * Python 3
 
 ## Usage
 
+***NOTE***: Your entrypoint (`_start`) ***must*** be in a section called
+`.text.startup._start`! Otherwise, the linker script will fail silently, and
+the smol startup/symbol resolving code will jump to an undefined location.
+
 ```sh
-./smol.py -lfoo -lbar input.o... smol-output.asm
-nasm -I src/ [-Doption ...] -o nasm-output.o smol-output.asm
-ld -T ld/link.ld --oformat=binary -o output.elf nasm-output.o input.o...
-# or cc -T ld/link.ld -Wl,--oformat=binary -o output.elf nasm-output.o input.o...
+./smold.py --use_interp --align_stack [--opts...] -lfoo -lbar input.o... output.elf
 ```
 
-* `USE_INTERP`: Include an interp segment in the output ELF file. If not, the
-  dynamic linker **must** be invoked *explicitely*! (You probably want to
-  enable this.) Costs the size of a phdr plus the size of the interp string.
-* `ALIGN_STACK`: *64-bit only*: realign the stack so that SSE instructions
-  won't segfault. Costs 1 byte.
-* `USE_NX`: Don't use `RWE` segments at all. Not very well tested. Costs the
-  size of 1 phdr, plus some extra stuff on `i386`. Don't forget to pass `-n`
-  to `smol.py` as well.
-* `USE_DL_FINI`: keep track of the `_dl_fini` function and pass it to your
-  `_start`. Costs 2 bytes, plus maybe a few more depending on how it's passed
-  to `__libc_start_main`.
-* `USE_DT_DEBUG`: retrieve the `struct link_map` from the `r_debug` linker
-  data (which is placed at `DT_DEBUG` at startup) instead of exploiting data
-  leakage from `_dt_start_user`. Might be more compatible and compressable, but
-  strictly worse size-wise by 10 (i386) or 3 (x86_64) bytes.
-* `SKIP_ENTRIES`: skip the first two entries of the `struct link_map`, which
-  represent the main binary and the vDSO. Costs around 5 bytes.
-* `USE_DNLOAD_LOADER`: use the symbol loading mechanism as used in dnload (i.e.
-  traverse the symtab of the imported libraries). Slightly larger, but probably
-  better compressable and more compatible with other libcs and future versions
-  of glibc.
-* `NO_START_ARG`: *don't* pass the stack pointer to `_start` as the first arg.
-  Will make it unable to read argc/argv/environ, but gives you 3 bytes.
-* `SKIP_ZERO_VALUE`: skip a `Sym` with a `st_value` field of `0`. If this isn't
-  enabled, weak symbols etc. might be imported instead of the real ones,
-  causing breakage. Many libraries don't have weak symbols at all, though.
-  Costs 4 (i386) or 5 (x86_64) bytes.
-
 ```
-usage: smol.py [-h] [-m TARGET] [-l LIB] [-L DIR] [--nasm NASM] [--cc CC]
-               [--scanelf SCANELF] [--readelf READELF]
-               input [input ...] output
+usage: smold.py [-h] [-m TARGET] [-l LIB] [-L DIR] [-s] [-n] [-d] [-fuse-interp] [-falign-stack] [-fuse-nx]
+                [-fuse-dnload-loader] [-fskip-zero-value] [-fuse-dt-debug] [-fuse-dl-fini] [-fskip-entries]
+                [-fno-start-arg] [-funsafe-dynamic] [--nasm NASM] [--cc CC] [--scanelf SCANELF] [--readelf READELF]
+                [--cflags CFLAGS] [--asflags ASFLAGS] [--ldflags LDFLAGS] [--smolrt SMOLRT] [--smolld SMOLLD]
+                [--verbose] [--keeptmp]
+                input [input ...] output
 
 positional arguments:
   input                 input object file
-  output                output nasm file
+  output                output binary
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -64,14 +41,45 @@ optional arguments:
   -l LIB, --library LIB
                         libraries to link against
   -L DIR, --libdir DIR  directories to search libraries in
+  -s, --hash16          Use 16-bit (BSD) hashes instead of 32-bit djb2 hashes. Implies -fuse-dnload-loader
+  -n, --nx              Use NX (i.e. don't use RWE pages). Costs the size of one phdr, plus some extra bytes on
+                        i386.
+  -d, --det             Make the order of imports deterministic (default: just use whatever binutils throws at us)
+  -fuse-interp          Include a program interpreter header (PT_INTERP). If not enabled, ld.so has to be invoked
+                        manually by the end user.
+  -falign-stack         Align the stack before running user code (_start). If not enabled, this has to be done
+                        manually. Costs 1 byte.
+  -fuse-nx              Don't use one big RWE segment, but use separate RW and RE ones. Use this to keep strict
+                        kernels (PaX/grsec) happy. Costs at least the size of one program header entry.
+  -fuse-dnload-loader   Use a dnload-style loader for resolving symbols, which doesn't depend on
+                        nonstandard/undocumented ELF and ld.so features, but is slightly larger. If not enabled, a
+                        smaller custom loader is used which assumes glibc.
+  -fskip-zero-value     Skip an ELF symbol with a zero address (a weak symbol) when parsing libraries at runtime.
+                        Try enabling this if you're experiencing sudden breakage. However, many libraries don't use
+                        weak symbols, so this doesn't often pose a problem. Costs ~5 bytes.
+  -fuse-dt-debug        Use the DT_DEBUG Dyn header to access the link_map, which doesn't depend on
+                        nonstandard/undocumented ELF and ld.so features. If not enabled, the link_map is accessed
+                        using data leaked to the entrypoint by ld.so, which assumes glibc. Costs ~10 bytes.
+  -fuse-dl-fini         Pass _dl_fini to the user entrypoint, which should be done to properly comply with all
+                        standards, but is very often not needed at all. Costs 2 bytes.
+  -fskip-entries        Skip the first two entries in the link map (resp. ld.so and the vDSO). Speeds up symbol
+                        resolving, but costs ~5 bytes.
+  -fno-start-arg        Don't pass a pointer to argc/argv/envp to the entrypoint using the standard calling
+                        convention. This means you need to read these yourself in assembly if you want to use them!
+                        (envp is a preprequisite for X11, because it needs $DISPLAY.) Frees 3 bytes.
+  -funsafe-dynamic      Don't end the ELF Dyn table with a DT_NULL entry. This might cause ld.so to interpret the
+                        entire binary as the Dyn table, so only enable this if you're sure this won't break things!
   --nasm NASM           which nasm binary to use
-  --cc CC               which cc binary to use
+  --cc CC               which cc binary to use (MUST BE GCC!)
   --scanelf SCANELF     which scanelf binary to use
   --readelf READELF     which readelf binary to use
-  -n, --nx              Use NX (i.e. don't use RWE pages). Costs the size of
-                        one phdr, plus some extra bytes on i386. Don't forget
-                        to pass -DUSE_NX to the assembly loader as well!
-
+  --cflags CFLAGS       Flags to pass to the C compiler for the relinking step
+  --asflags ASFLAGS     Flags to pass to the assembler when creating the ELF header and runtime startup code
+  --ldflags LDFLAGS     Flags to pass to the linker for the final linking step
+  --smolrt SMOLRT       Directory containing the smol runtime sources
+  --smolld SMOLLD       Directory containing the smol linker scripts
+  --verbose             Be verbose about what happens and which subcommands are invoked
+  --keeptmp             Keep temp files (only useful for debugging)
 ```
 
 A minimal crt (and `_start` funcion) are provided in case you want to use `main`.
@@ -82,9 +90,6 @@ A minimal crt (and `_start` funcion) are provided in case you want to use `main`
 imported by a `smol`-ified binary. This can thus be used to detect user mistakes
 during dynamic linking. (Think of it as an equivalent of `ldd`, except that it
 also checks whether the imported functions are present as well.)
-
-***NOTE***: `smoldd.py` currently doesn't support 64-bit binaries anymore, as
-there's currently no (good) way of retrieving the symbol hash table anymore.
 
 ## Internal workings
 
@@ -99,7 +104,7 @@ works for glibc): on both i386 and x86_64, the linker startup code
 (`_dl_start_user`) leaks the global `struct link_map` to the user code:
 on i386, a pointer to it is passed directly through `eax`:
 
-```s
+```asm
 # (eax, edx, ecx, esi) = (_dl_loaded, argc, argv, envp)
 movl _rtld_local@GOTOFF(%ebx), %eax
 ## [ boring stuff... ]
