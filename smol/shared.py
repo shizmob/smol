@@ -21,3 +21,7 @@ def hash_djb2(s):
 
 def eprintf(*args, **kwargs): print(*args, file=sys.stderr, **kwargs)
 
+def error(*args, **kwargs):
+    eprintf(*args, **kwargs)
+    sys.exit(1)
+

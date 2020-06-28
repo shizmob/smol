@@ -5,6 +5,7 @@ import sys
 
 def main(argv):
     parser = argparse.ArgumentParser()
+    # TODO: output null -> in-place!
     parser.add_argument('input', type=argparse.FileType('rb'), \
                         help="input file to truncate")
     parser.add_argument('output', type=argparse.FileType('wb'), \

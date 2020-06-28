@@ -5,7 +5,7 @@ import subprocess
 import struct
 import sys
 
-from smolshared import *
+from .shared import *
 
 def decide_arch(inpfiles):
     archs=set({})
@@ -20,8 +20,7 @@ def decide_arch(inpfiles):
             archs.add(machnum)
 
     if len(archs) != 1:
-        eprintf("Input files have multiple architectures, can't link this...")
-        sys.exit(1)
+        error("Input files have multiple architectures, can't link this...")
 
     archn = list(archs)[0]
 
@@ -48,24 +47,41 @@ def build_reloc_typ_table(reo):
 
     return relocs
 
-def get_needed_syms(readelf_bin, inpfiles):
-    output = subprocess.check_output([readelf_bin, '-s', '-W']+inpfiles,
+def has_lto_object(readelf_bin, files):
+    for x in files:
+        with open(x,'rb') as f:
+            if f.read(2) == b'BC': # LLVM bitcode! --> clang -flto
+                return True
+
+    output = subprocess.check_output([readelf_bin, '-s', '-W'] + files,
                                      stderr=subprocess.DEVNULL)
-    outrel = subprocess.check_output([readelf_bin, '-r', '-W']+inpfiles,
+
+    curfile = files[0]
+    for entry in output.decode('utf-8').splitlines():
+        stuff = entry.split()
+        if len(stuff)<2: continue
+        if stuff[0] == "File:": curfile = stuff[1]
+        if "__gnu_lto_" in entry or ".gnu.lto" in entry: # assuming nobody uses a symbol called "__gnu_lto_" ...
+            return True
+    return False
+
+def get_needed_syms(readelf_bin, inpfile):
+    output = subprocess.check_output([readelf_bin, '-s', '-W',inpfile],
+                                     stderr=subprocess.DEVNULL)
+    outrel = subprocess.check_output([readelf_bin, '-r', '-W',inpfile],
                                      stderr=subprocess.DEVNULL)
 
     relocs = build_reloc_typ_table(outrel)
 
-    curfile = inpfiles[0]
+    curfile = inpfile
     syms=set({})
     for entry in output.decode('utf-8').splitlines():
         stuff = entry.split()
         if len(stuff)<2: continue
         if stuff[0] == "File:": curfile = stuff[1]
         if len(stuff)<8: continue
-        if stuff[7].startswith("__gnu_lto_"): # yikes, an LTO object
-            eprintf("{} is an LTO object file, can't use this!".format(curfile))
-            exit(1)
+        #if stuff[7].startswith("__gnu_lto_"): # yikes, an LTO object
+        #    error("{} is an LTO object file, can't use this!".format(curfile))
         if stuff[4] == "GLOBAL" and stuff[6] == "UND" and len(stuff[7])>0 \
                 and stuff[7] in relocs:
             syms.add((stuff[7], relocs[stuff[7]]))
@@ -105,6 +121,21 @@ def get_cc_paths(cc_bin):
 
     return paths
 
+def get_cc_version(cc_bin):
+    bak = os.environ.copy()
+    os.environ['LANG'] = "C" # DON'T output localized search dirs!
+    output = subprocess.check_output([cc_bin, '--version'],
+                                     stderr=subprocess.DEVNULL)
+    os.environ = bak
+
+    lines = output.decode('utf-8').splitlines()
+    if "Free Software Foundation" in lines[1]: # GCC
+        verstr = lines[0].split()[-1]
+        return ("gcc", tuple(map(int, verstr.split('.'))))
+    else: # assume clang
+        verstr = lines[0].split()[-1]
+        return ("clang", tuple(map(int, verstr.split('.'))))
+
 def is_valid_elf(f): # Good Enough(tm)
     with open(f, 'rb') as ff: return ff.read(4) == b'\x7FELF'
 
@@ -117,8 +148,7 @@ def find_lib(spaths, wanted):
         #for f in glob.glob(glob.escape(p) + '/lib' + wanted + '.a' ): return f
         #for f in glob.glob(glob.escape(p) + '/'    + wanted + '.a' ): return f
 
-    eprintf("E: couldn't find library '" + wanted + "'.")
-    sys.exit(1)
+    error("E: couldn't find library '" + wanted + "'.")
 
 def find_libs(spaths, wanted): return map(lambda l: find_lib(spaths, l), wanted)
 

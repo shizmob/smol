@@ -3,9 +3,10 @@
 import os.path, struct, sys
 import argparse, glob, shutil, subprocess
 
-import hackyelf, linkmap
-from smolshared import *
-from smolparse  import *
+import smol.hackyelf as hackyelf
+import smol.linkmap  as linkmap
+from smol.shared import *
+from smol.parse  import *
 
 def readbyte(blob, off): return struct.unpack('<B', blob[off:off+1])[0], (off+1)
 def readint(blob, off):  return struct.unpack('<I', blob[off:off+4])[0], (off+4)
@@ -55,7 +56,7 @@ def addr2off(elf, addr):
             assert aoff < x.filesz, ".bss address!"
             return aoff + x.off
 
-    assert False, "Address %08x not in the static address range!" % addr
+    error("E: Address %08x not in the static address range!" % addr)
 
 def get_needed_libs(elf, blob):
     assert elf.dyn is not None, "No DYNAMIC table present in the ELF file!"
@@ -100,7 +101,7 @@ def get_hashtbl(elf, blob, args):
         htaddr = struct.unpack('<I', blob[txtoff:txtoff+4])[0]
 
     assert htaddr is not None, "wtf? (no hashtable address)"
-    print("Hash table address: 0x%08x" % htaddr)
+    #print("Hash table address: 0x%08x" % htaddr)
     htoff = addr2off(elf, htaddr)
 
     tbl = []
