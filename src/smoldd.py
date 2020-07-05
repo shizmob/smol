@@ -27,7 +27,7 @@ def get_def_libpaths(cc_bin, is32bit):
     return get_cc_paths(cc_bin)['libraries']
 
 def find_libs(deflibs, libname):
-    dirs = os.environ['LD_LIBRARY_PATH'].split(':') + deflibs
+    dirs = os.environ.get('LD_LIBRARY_PATH','').split(':') + deflibs
 
     for d in dirs:
         for f in glob.glob(glob.escape(d + '/' + libname) + '*'): yield f
