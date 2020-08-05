@@ -82,7 +82,7 @@ def parse_mmap(ls: Sequence[str]) -> Sequence[MMap]:
         if len(symn) > 0:
             rrr.append(MMap(section, addr, symn, curfile))
 
-    return rrr
+    return sorted(rrr, key=lambda m: m.org)
 
 def parse(s: str) -> LinkMap:
     COMMON  = 0
