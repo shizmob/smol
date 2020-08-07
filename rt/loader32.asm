@@ -104,34 +104,44 @@ _smol_start:
             add esi, ebx
 
            push ecx
-%ifndef USE_HASH16
+
+                ; source in eax, result in eax
+%ifdef USE_CRC32C_HASH
+           push -1
+            pop eax
+%else
+    %ifndef USE_HASH16
            push ebx
            push 33
            push 5381
             pop eax
             pop ebx
-%else
+    %else
             xor eax, eax
-%endif
+    %endif
             xor ecx, ecx
+%endif
         .nexthashiter:
-                    ;
                xchg eax, ecx
               lodsb
                  or al, al
                xchg eax, ecx
                  jz short .breakhash
 
-%ifndef USE_HASH16
+%ifdef USE_CRC32C_HASH
+              crc32 eax, cl
+%else
+    %ifndef USE_HASH16
                push edx
                 mul ebx
                 pop edx
 ;               add eax, ecx
-%else
+    %else
                 ror ax, 2
 ;               add ax, cx
-%endif
+    %endif
                 add eax, ecx
+%endif
                 jmp short .nexthashiter
 
         .breakhash:
@@ -173,16 +183,16 @@ _smol_start:
             cmp al, STT_GNU_IFUNC
             jne short .no_ifunc
           ;int3
-%ifdef IFUNC_CORRECT_CCONV
+    %ifdef IFUNC_CORRECT_CCONV
                 ; call destroys stuff, but we only need to preserve edi
                 ; for our purposes anyway. we do need one push to align the
                 ; stack to 16 bytes
            push edi
            call ecx
             pop edi
-%else
+    %else
            call ecx
-%endif
+    %endif
              db 0x3c ; cmp al, <next byte == xchg ecx,eax> --> jump over next insn
         .no_ifunc:
            xchg ecx, eax
@@ -287,14 +297,14 @@ repne scasd
                 cmp al, STT_GNU_IFUNC
                 jne short .no_ifunc
               ;int3
-%ifdef IFUNC_CORRECT_CCONV
+    %ifdef IFUNC_CORRECT_CCONV
                     ; call destroys stuff, but we only need to preserve edi
                     ; for our purposes anyway. we do need one push to align the
                     ; stack to 16 bytes
                push edi
                call ecx
                 pop edi
-%else
+    %else
                call ecx
 %endif
                  db 0x3c ; cmp al, <next byte == xchg ecx,eax> --> jump over next insn

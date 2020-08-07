@@ -37,13 +37,16 @@ def sort_imports(libraries, hashfn):
     if sys.version_info < (3, 6): return OrderedDict(ll)
     else: return dict(ll)
 
-def output_x86(libraries, nx, h16, outf, det):
+def output_x86(libraries, nx, hashid, outf, det):
     outf.write('; vim: set ft=nasm:\n') # be friendly
 
-    if nx:  outf.write('%define USE_NX 1\n')
-    if h16: outf.write('%define USE_HASH16 1\n')
+    defff = define_for_hash[hashid]
+    if defff is not None:
+        outf.write('%define {} 1\n'.format(defff))
+    if nx:
+        outf.write('%define USE_NX 1\n')
 
-    hashfn = hash_bsd2 if h16 else hash_djb2
+    hashfn = get_hash_fn(hashid)
     if det: libraries = sort_imports(libraries, hashfn)
 
     outf.write('%%define HASH_END_TYP %s\n' %
@@ -128,21 +131,24 @@ global {name}
 # end output_x86
 
 
-def output_amd64(libraries, nx, h16, outf, det):
-    if h16:
+def output_amd64(libraries, nx, hashid, outf, det):
+    if hashid == HASH_BSD2:
         error("--hash16 not supported yet for x86_64 outputs.")
 
-    if nx:  outf.write('%define USE_NX 1\n')
-#   if h16: outf.write('%define USE_HASH16 1\n')
+    outf.write('; vim: set ft=nasm:\n')
+    outf.write('bits 64\n')
 
-    hashfn = hash_djb2 #hash_bsd2 if h16 else hash_djb2
+    defff = define_for_hash[hashid]
+    if defff is not None:
+        outf.write('%define {} 1\n'.format(defff))
+    if nx:
+        outf.write('%define USE_NX 1\n')
+
+    hashfn = get_hash_fn(hashid)
     if det: libraries = sort_imports(libraries, hashfn)
 
     outf.write('%%define HASH_END_TYP %s\n' %
                fetch_width_from_bits[get_min_check_width(libraries, hashfn)])
-
-    outf.write('; vim: set ft=nasm:\n')
-    outf.write('bits 64\n')
 
     shorts = { l: l.split('.', 1)[0].lower().replace('-', '_') for l in libraries }
 
@@ -208,9 +214,9 @@ global {name}
 # end output_amd64
 
 
-def output(arch, libraries, nx, h16, outf, det):
-    if arch == 'i386': output_x86(libraries, nx, h16, outf, det)
-    elif arch == 'x86_64': output_amd64(libraries, nx, h16, outf, det)
+def output(arch, libraries, nx, hashid, outf, det):
+    if arch == 'i386': output_x86(libraries, nx, hashid, outf, det)
+    elif arch == 'x86_64': output_amd64(libraries, nx, hashid, outf, det)
     else:
         error("E: cannot emit for arch '%s'" % str(arch))
 
