@@ -34,17 +34,22 @@
 %define DT_SYMTAB ( 6)
 %define DT_DEBUG  (21)
 
-%define ST_NAME_OFF  ( 0)
+%define ST_NAME_OFF       ( 0)
+%define ST_INFO__STT_MASK (15)
+%define STT_GNU_IFUNC     (10)
+
 ;  ,---- not 16? ; what's this comment??!
 ; v
 %if __BITS__ == 32
 %define D_UN_PTR_OFF         ( 4)
 %define ST_VALUE_OFF         ( 4)
+%define ST_INFO_OFF          (12)
 %define SYMTAB_SIZE          (16)
 %define ELF_DYN_SZ           ( 8)
 %else
 %define D_UN_PTR_OFF         ( 8)
 %define ST_VALUE_OFF         ( 8)
+%define ST_INFO_OFF          ( 4)
 %define SYMTAB_SIZE          (24)
 %define ELF_DYN_SZ           (16)
 %endif

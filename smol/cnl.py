@@ -28,12 +28,14 @@ def nasm_assemble_elfhdr(verbose, nasm_bin, arch, rtdir, intbl, output, asflags)
     if verbose: eprintf("nasm: %s" % repr(args))
     subprocess.check_call(args, stdout=subprocess.DEVNULL)
 
-def ld_link_final(verbose, cc_bin, arch, lddir, inobjs, output, ldflags):
+def ld_link_final(verbose, cc_bin, arch, lddir, inobjs, output, ldflags, debug):
     archflag = '-m64' if arch == "x86_64" else '-m32'
 
-    args = [cc_bin, archflag, '-T', lddir+'/link.ld', \
-            '-Wl,--oformat=binary', '-nostartfiles', '-nostdlib', \
-            '-o', output] + inobjs + ldflags
+    args = [cc_bin, archflag, '-T', lddir+'/link.ld', '-no-pie']
+    if not debug:
+        args.append('-Wl,--oformat=binary')
+        #args = [*args, '-T', lddir+'/link.ld', '-Wl,--oformat=binary']
+    args += ['-nostartfiles', '-nostdlib', '-o', output, *inobjs, *ldflags]
 
     if verbose: eprintf("ld: %s" % repr(args))
     subprocess.check_call(args, stdout=subprocess.DEVNULL)

@@ -4,6 +4,7 @@ SRCDIR := rt
 TESTDIR:= test
 
 NASM ?= nasm
+OBJCOPY ?= objcopy
 
 BITS ?= $(shell getconf LONG_BIT)
 
@@ -35,12 +36,12 @@ else
 CFLAGS += -march=nocona
 endif
 
-LIBS = $(filter-out -pthread,$(shell pkg-config --libs sdl2)) -lX11 -lc #-lGL
+LIBS = $(filter-out -pthread,$(shell pkg-config --libs sdl2)) -lX11 -lm -lc #-lGL
 
 PWD ?= .
 
 SMOLFLAGS = --smolrt "$(PWD)/rt" --smolld "$(PWD)/ld" \
-     -falign-stack -fuse-interp \
+     -falign-stack -fuse-interp -fifunc-support \
      --verbose #--keeptmp
 # -fuse-dnload-loader -fskip-zero-value -fuse-nx -fskip-entries -fuse-dt-debug
 # -fuse-dl-fini -fno-start-arg -funsafe-dynamic
@@ -67,11 +68,13 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.c $(OBJDIR)/
 $(OBJDIR)/%.o: $(TESTDIR)/%.c $(OBJDIR)/
 	$(CC) $(CFLAGS) -c "$<" -o "$@"
 
-$(BINDIR)/%: $(OBJDIR)/%.o $(BINDIR)/
-	$(PYTHON3) ./smold.py $(SMOLFLAGS) $(LIBS) "$<" "$@"
+$(BINDIR)/%.dbg $(BINDIR)/%: $(OBJDIR)/%.o $(BINDIR)/
+	$(PYTHON3) ./smold.py --debugout $(SMOLFLAGS) --ldflags=-Wl,-Map=$(BINDIR)/$*.map $(LIBS) "$<" "$@.dbg"
+	$(PYTHON3) ./smold.py $(SMOLFLAGS) --ldflags=-Wl,-Map=$(BINDIR)/$*.map $(LIBS) "$<" "$@"
 	$(PYTHON3) ./smoltrunc.py "$@" "$(OBJDIR)/$(notdir $@)" && mv "$(OBJDIR)/$(notdir $@)" "$@" && chmod +x "$@"
 
-$(BINDIR)/%-crt: $(OBJDIR)/%.lto.o $(OBJDIR)/crt1.lto.o $(BINDIR)/
+$(BINDIR)/%-crt.dbg $(BINDIR)/%-crt: $(OBJDIR)/%.lto.o $(OBJDIR)/crt1.lto.o $(BINDIR)/
+	$(PYTHON3) ./smold.py --debugout $(SMOLFLAGS) --ldflags=-Wl,-Map=$(BINDIR)/$*-crt.map $(LIBS) "$<" $(OBJDIR)/crt1.lto.o "$@.dbg"
 	$(PYTHON3) ./smold.py $(SMOLFLAGS) --ldflags=-Wl,-Map=$(BINDIR)/$*-crt.map $(LIBS) "$<" $(OBJDIR)/crt1.lto.o "$@"
 	$(PYTHON3) ./smoltrunc.py "$@" "$(OBJDIR)/$(notdir $@)" && mv "$(OBJDIR)/$(notdir $@)" "$@" && chmod +x "$@"
 

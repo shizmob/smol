@@ -1,10 +1,19 @@
-OUTPUT_FORMAT(binary)
+OUTPUT_FORMAT("elf64-x86-64", "elf64-x86-64", "elf64-x86-64")
+OUTPUT_ARCH(i386:x86-64)
+ENTRY(_smol_start)
+SEARCH_DIR("/usr/x86_64-pc-linux-gnu/lib64"); SEARCH_DIR("/usr/lib"); SEARCH_DIR("/usr/local/lib"); SEARCH_DIR("/usr/x86_64-pc-linux-gnu/lib");
+/*OUTPUT_FORMAT(binary)*/
+
+PHDRS {
+	rodttxt PT_LOAD FLAGS(5); /* r-x */
+	rwdt    PT_LOAD FLAGS(6); /* rw- */
+}
 
 SECTIONS {
   . = 0x10000;
   _smol_origin = .;
 
-  .header : { KEEP(*(.header)) }
+  .header : { KEEP(*(.header)) } :rodttxt
 
   _smol_text_start = .;
   _smol_text_off = _smol_text_start - _smol_origin;
@@ -15,7 +24,7 @@ SECTIONS {
      KEEP(*(.text.startup.smol))
      KEEP(*(.text.startup._start))
      *(.text .text.*)
-  }
+  } :rodttxt
   _smol_text_end = .;
   _smol_text_size = _smol_text_end - _smol_text_start;
 
@@ -26,10 +35,10 @@ SECTIONS {
   .data : {
      KEEP(*(.data.smolgot))
      *(.data .data.* .tdata .tdata.*)
-  }
+  } :rwdt
 
-  .dynamic : { *(.dynamic) } :all :dyn
-  .dynstuff : { *(.symtab .strtab .shstrtab .rel.text .got.plt .gnu.linkonce.* .plt .plt.got .interp) } :all
+  .dynamic : { *(.dynamic) } :rodttxt :dyn
+  .dynstuff : { *(.symtab .strtab .shstrtab .rel.text .got.plt .gnu.linkonce.* .plt .plt.got .interp) } :rodttxt
   _smol_data_end = .;
   _smol_data_size = _smol_data_end - _smol_data_start;
 
@@ -39,7 +48,7 @@ SECTIONS {
   _smol_bss_off = _smol_bss_start - _smol_origin;
   .bss : {
       *(.bss .bss.* .tbss .tbss.* .sbss .sbss.*)
-  }
+  } :rwdt
   _smol_bss_end = .;
   _smol_bss_size = _smol_bss_end - _smol_bss_start;
 

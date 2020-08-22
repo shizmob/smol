@@ -74,6 +74,9 @@ def main():
         help="Don't end the ELF Dyn table with a DT_NULL entry. This might "+\
              "cause ld.so to interpret the entire binary as the Dyn table, "+\
              "so only enable this if you're sure this won't break things!")
+    parser.add_argument('-fifunc-support', default=False, action='store_true', \
+        help="Support linking to IFUNCs. Probably needed on x86_64, but costs "+\
+             "~16 bytes. Ignored on platforms other than x86_64 or aarch64.")
 
     parser.add_argument('--nasm', default=os.getenv('NASM') or shutil.which('nasm'), \
         help="which nasm binary to use")
@@ -99,6 +102,10 @@ def main():
         help="Be verbose about what happens and which subcommands are invoked")
     parser.add_argument('--keeptmp', default=False, action='store_true', \
         help="Keep temp files (only useful for debugging)")
+    parser.add_argument('--debugout', default=False, action='store_true', \
+        help="Output an unrunnable debug ELF file with symbol information. "+\
+             "(Useful for debugging with gdb, cannot be ran due to broken "+\
+             "relocations.)")
 
     parser.add_argument('input', nargs='+', help="input object file")
     parser.add_argument('output', type=str, help="output binary")
@@ -118,6 +125,7 @@ def main():
     if args.fuse_dnload_loader: args.asflags.insert(0, "-DUSE_DNLOAD_LOADER")
     if args.fuse_interp: args.asflags.insert(0, "-DUSE_INTERP")
     if args.falign_stack: args.asflags.insert(0, "-DALIGN_STACK")
+    if args.fifunc_support: args.asflags.insert(0, "-DIFUNC_SUPPORT")
 
     for x in ['nasm','cc','scanelf','readelf']:
         val = args.__dict__[x]
@@ -172,7 +180,7 @@ def main():
 
         # link with LD into the final executable, w/ special linker script
         ld_link_final(args.verbose, args.cc, arch, args.smolld, [objinput, tmp_elf_file],
-                      args.output, args.ldflags)
+                      args.output, args.ldflags, args.debugout)
     finally:
         if not args.keeptmp:
             if objinputistemp: os.remove(objinput)

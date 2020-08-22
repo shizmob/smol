@@ -127,15 +127,50 @@ _smol_start:
             jmp short .next_link
 
         .hasheq:
+%ifdef IFUNC_SUPPORT
+            mov cl , [rdx + ST_INFO_OFF]
+%endif
             mov rax, [rdx + ST_VALUE_OFF]
 %ifdef SKIP_ZERO_VALUE
              or rax, rax
              jz short .next_link
 %endif
             add rax, [r12 + L_ADDR_OFF]
+%ifdef IFUNC_SUPPORT
+           and cl, ST_INFO__STT_MASK
+           cmp cl, STT_GNU_IFUNC
+            je .ifunc
+        .no_ifunc:
+%endif
           stosq
             cmp word [rdi], 0
             jne short .next_hash
+
+%ifdef IFUNC_SUPPORT
+            jmp short .break_loop
+        .ifunc:
+         ;;int3 ; in this call, we lose rax rcx rdx rsi rdi r8 r9 r10 r11
+                ; we only need persistence for rdi and r11 tho
+          ;push rcx
+          ;push rdx
+          ;push rsi
+           push rdi
+          ;push r8
+          ;push r9
+          ;push r10
+           push r11
+           call rax
+            pop r11
+           ;pop r10
+           ;pop r9
+           ;pop r8
+            pop rdi
+           ;pop rsi
+           ;pop rdx
+           ;pop rcx
+            jmp short .no_ifunc
+        .break_loop:
+%endif
 
 ; if USE_DNLOAD_LOADER
 %else
@@ -219,6 +254,12 @@ repne scasd ; technically, scasq should be used, but meh. this is 1 byte smaller
             mov rax, [rax + D_UN_PTR_OFF]
                 ; ElfW(Addr) symoff(rax) = symtab[bucket].st_value
             lea rdx, [rcx + rcx * 2]
+
+%ifdef IFUNC_SUPPORT
+                ; large opcode, but, ~almost the same as the next one, so,
+                ; should compress well
+            mov cl, [rax + rdx * 8 + ST_INFO_OFF] ; TODO: actually mov cl, ...
+%endif
             mov rax, [rax + rdx * 8 + ST_VALUE_OFF]
 %ifdef SKIP_ZERO_VALUE
              or rax, rax ; zero value => weak symbol or sth
@@ -226,6 +267,20 @@ repne scasd ; technically, scasq should be used, but meh. this is 1 byte smaller
 %endif
                 ; void* finaladdr(rax) = symoff + entry->l_addr
             add rax, [r12 + L_ADDR_OFF]
+
+%ifdef IFUNC_SUPPORT
+                ; is this an ifunc?
+            and cl, ST_INFO__STT_MASK
+            cmp cl, STT_GNU_IFUNC
+            jne .no_ifunc
+                ; if so: call the resolver
+           push rdi
+           push r11
+           call rax
+            pop r11
+            pop rdi
+        .no_ifunc:
+%endif
 
                 ; *phash = finaladdr
           stosq
