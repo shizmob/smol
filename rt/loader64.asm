@@ -258,20 +258,19 @@ repne scasd ; technically, scasq should be used, but meh. this is 1 byte smaller
 %ifdef IFUNC_SUPPORT
                 ; large opcode, but, ~almost the same as the next one, so,
                 ; should compress well
-            mov cl, [rax + rdx * 8 + ST_INFO_OFF] ; TODO: actually mov cl, ...
-%endif
-            mov rax, [rax + rdx * 8 + ST_VALUE_OFF]
-%ifdef SKIP_ZERO_VALUE
-             or rax, rax ; zero value => weak symbol or sth
-             jz short .next_link
-%endif
-                ; void* finaladdr(rax) = symoff + entry->l_addr
-            add rax, [r12 + L_ADDR_OFF]
+            mov rcx, [rax + rdx * 8 + ST_VALUE_OFF]
+            mov rax, [rax + rdx * 8 + ST_INFO_OFF ] ; actually just 'al' needed here
 
-%ifdef IFUNC_SUPPORT
+%ifdef SKIP_ZERO_VALUE
+          jrcxz .next_link
+%endif
+                ; void* finaladdr(rcx) = symoff + entry->l_addr
+            add rcx, [r12 + L_ADDR_OFF]
+
                 ; is this an ifunc?
-            and cl, ST_INFO__STT_MASK
-            cmp cl, STT_GNU_IFUNC
+            and al, ST_INFO__STT_MASK
+            cmp al, STT_GNU_IFUNC
+           xchg rcx, rax
             jne .no_ifunc
                 ; if so: call the resolver
            push rdi
@@ -280,10 +279,18 @@ repne scasd ; technically, scasq should be used, but meh. this is 1 byte smaller
             pop r11
             pop rdi
         .no_ifunc:
+; IFUNC_SUPPORT
+%else
+            mov rax, [rax + rdx * 8 + ST_VALUE_OFF]
+%ifdef SKIP_ZERO_VALUE
+             or rax, rax ; zero value => weak symbol or sth
+             jz short .next_link
 %endif
-
-                ; *phash = finaladdr
-          stosq
+                ; void* finaladdr(rax) = symoff + entry->l_addr
+            add rax, [r12 + L_ADDR_OFF]
+; IFUNC_SUPPORT
+%endif
+          stosq ; *phash = finaladdr
             cmp word [rdi], 0
             jne short .next_hash
             ; } while (1)
