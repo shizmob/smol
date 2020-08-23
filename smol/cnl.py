@@ -31,7 +31,7 @@ def nasm_assemble_elfhdr(verbose, nasm_bin, arch, rtdir, intbl, output, asflags)
 def ld_link_final(verbose, cc_bin, arch, lddir, inobjs, output, ldflags, debug):
     archflag = '-m64' if arch == "x86_64" else '-m32'
 
-    args = [cc_bin, archflag, '-L', lddir, '-T', lddir+('/link_%s.ld'%arch), '-no-pie']
+    args = [cc_bin, archflag, '-L', lddir, '-T', '%s/link_%s.ld'%(lddir,arch), '-no-pie']
     if not debug:
         args.append('-Wl,--oformat=binary')
         #args = [*args, '-T', lddir+'/link.ld', '-Wl,--oformat=binary']

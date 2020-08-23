@@ -87,11 +87,11 @@ def main():
     parser.add_argument('--readelf', default=os.getenv('READELF') or shutil.which('readelf'), \
         help="which readelf binary to use")
 
-    parser.add_argument('--cflags', default=[], metavar='CFLAGS', action='append',
+    parser.add_argument('-Wc','--cflags', default=[], metavar='CFLAGS', action='append',
         help="Flags to pass to the C compiler for the relinking step")
-    parser.add_argument('--asflags', default=[], metavar='ASFLAGS', action='append',
+    parser.add_argument('-Wa','--asflags', default=[], metavar='ASFLAGS', action='append',
         help="Flags to pass to the assembler when creating the ELF header and runtime startup code")
-    parser.add_argument('--ldflags', default=[], metavar='LDFLAGS', action='append',
+    parser.add_argument('-Wl','--ldflags', default=[], metavar='LDFLAGS', action='append',
         help="Flags to pass to the linker for the final linking step")
     parser.add_argument('--smolrt', default=os.getcwd()+"/rt",
         help="Directory containing the smol runtime sources")
@@ -102,10 +102,10 @@ def main():
         help="Be verbose about what happens and which subcommands are invoked")
     parser.add_argument('--keeptmp', default=False, action='store_true', \
         help="Keep temp files (only useful for debugging)")
-    parser.add_argument('--debugout', default=False, action='store_true', \
-        help="Output an unrunnable debug ELF file with symbol information. "+\
-             "(Useful for debugging with gdb, cannot be ran due to broken "+\
-             "relocations.)")
+    parser.add_argument('--debugout', type=str, default=None, \
+        help="Write out an additional, unrunnable debug ELF file with symbol "+\
+             "information. (Useful for debugging with gdb, cannot be ran due "+\
+             "to broken relocations.)")
 
     parser.add_argument('input', nargs='+', help="input object file")
     parser.add_argument('output', type=str, help="output binary")
@@ -130,13 +130,13 @@ def main():
     for x in ['nasm','cc','scanelf','readelf']:
         val = args.__dict__[x]
         if val is None or not os.path.isfile(val):
-            error("'" + x + "' binary" + (" " if val is None
-                                            else " ('" + val + "')") + " not found")
+            error("'%s' binary%s not found" %
+                  (x, ("" if val is None else (" ('%s')" % val))))
 
     arch = args.target.tolower() if len(args.target) != 0 else decide_arch(args.input)
     if arch not in archmagic:
-        error("Unknown/unsupported architecture '" + str(arch) + "'")
-    if args.verbose: eprintf("arch: %s" % arch)
+        error("Unknown/unsupported architecture '%s'" % str(arch))
+    if args.verbose: eprintf("arch: %s" % str(arch))
 
     objinput = None
     objinputistemp = False
@@ -160,7 +160,7 @@ def main():
         spaths = args.libdir + cc_paths['libraries']
         libraries = cc_paths['libraries']
         libs = list(find_libs(spaths, args.library))
-        if args.verbose: eprintf("libs = " + str(libs))
+        if args.verbose: eprintf("libs = %s" % str(libs))
         symbols = {}
         for symbol, reloc in syms:
             library = find_symbol(args.scanelf, libs, args.library, symbol)
@@ -180,7 +180,10 @@ def main():
 
         # link with LD into the final executable, w/ special linker script
         ld_link_final(args.verbose, args.cc, arch, args.smolld, [objinput, tmp_elf_file],
-                      args.output, args.ldflags, args.debugout)
+                      args.output, args.ldflags, False)
+        if args.debugout is not None:
+            ld_link_final(args.verbose, args.cc, arch, args.smolld, [objinput, tmp_elf_file],
+                          args.debugout, args.ldflags, True)
     finally:
         if not args.keeptmp:
             if objinputistemp: os.remove(objinput)

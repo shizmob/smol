@@ -69,13 +69,11 @@ $(OBJDIR)/%.o: $(TESTDIR)/%.c $(OBJDIR)/
 	$(CC) $(CFLAGS) -c "$<" -o "$@"
 
 $(BINDIR)/%.dbg $(BINDIR)/%: $(OBJDIR)/%.o $(BINDIR)/
-	$(PYTHON3) ./smold.py --debugout $(SMOLFLAGS) $(LIBS) "$<" "$@.dbg"
-	$(PYTHON3) ./smold.py $(SMOLFLAGS) --ldflags=-Wl,-Map=$(BINDIR)/$*.map $(LIBS) "$<" "$@"
+	$(PYTHON3) ./smold.py --debugout "$@.dbg" $(SMOLFLAGS) --ldflags=-Wl,-Map=$(BINDIR)/$*.map $(LIBS) "$<" "$@"
 	$(PYTHON3) ./smoltrunc.py "$@" "$(OBJDIR)/$(notdir $@)" && mv "$(OBJDIR)/$(notdir $@)" "$@" && chmod +x "$@"
 
 $(BINDIR)/%-crt.dbg $(BINDIR)/%-crt: $(OBJDIR)/%.lto.o $(OBJDIR)/crt1.lto.o $(BINDIR)/
-	$(PYTHON3) ./smold.py --debugout $(SMOLFLAGS) $(LIBS) "$<" $(OBJDIR)/crt1.lto.o "$@.dbg"
-	$(PYTHON3) ./smold.py $(SMOLFLAGS) --ldflags=-Wl,-Map=$(BINDIR)/$*-crt.map $(LIBS) "$<" $(OBJDIR)/crt1.lto.o "$@"
+	$(PYTHON3) ./smold.py --debugout "$@.dbg" $(SMOLFLAGS) --ldflags=-Wl,-Map=$(BINDIR)/$*-crt.map $(LIBS) "$<" $(OBJDIR)/crt1.lto.o "$@"
 	$(PYTHON3) ./smoltrunc.py "$@" "$(OBJDIR)/$(notdir $@)" && mv "$(OBJDIR)/$(notdir $@)" "$@" && chmod +x "$@"
 
 .PHONY: all clean

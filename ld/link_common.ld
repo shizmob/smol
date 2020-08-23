@@ -2,8 +2,10 @@
 ENTRY(_smol_start)
 
 PHDRS {
-	rodttxt PT_LOAD FLAGS(5); /* r-x */
-	rwdt    PT_LOAD FLAGS(6); /* rw- */
+	dyn     PT_DYNAMIC FLAGS(0); /* --- */
+	interp  PT_INTERP  FLAGS(0); /* --- */
+	rodttxt PT_LOAD    FLAGS(5); /* r-x */
+	rwdt    PT_LOAD    FLAGS(6); /* rw- */
 }
 
 SECTIONS {
@@ -11,6 +13,8 @@ SECTIONS {
   _smol_origin = .;
 
   .header : { KEEP(*(.header)) } :rodttxt
+  .dynamic : { *(.dynamic .rodata.dynamic) } :dyn :rodttxt
+  .interp : { *(.interp .rodata.interp) } :interp /*:rodttxt*/
 
   _smol_text_start = .;
   _smol_text_off = _smol_text_start - _smol_origin;
@@ -34,8 +38,7 @@ SECTIONS {
      *(.data .data.* .tdata .tdata.*)
   } :rwdt
 
-  .dynamic : { *(.dynamic) } :rodttxt :dyn
-  .dynstuff : { *(.symtab .strtab .shstrtab .rel.text .got.plt .gnu.linkonce.* .plt .plt.got .interp) } :rodttxt
+  .dynstuff : { *(.symtab .strtab .shstrtab .rel.text .got.plt .gnu.linkonce.* .plt .plt.got) } /*:dyn*/ :rodttxt
   _smol_data_end = .;
   _smol_data_size = _smol_data_end - _smol_data_start;
 
