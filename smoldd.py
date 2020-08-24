@@ -127,11 +127,16 @@ def get_hashtbl(elf, blob, args):
             #eprintf("htoff = 0x%08x, len=%08x" % (htoff, len(blob)))
             if len(blob) <= htoff and len(tbl) > 0:
                 break
+            #if elf.is32bit:
             if struct.unpack('<B', blob[htoff:htoff+1])[0] == 0:
                 break
+            #else:
+            #    if struct.unpack('<H', blob[htoff:htoff+2])[0] == 0:
+            #        break
         val = struct.unpack('<I', blob[htoff:htoff+4])[0]
-        if (val & 0xFF) == 0: break
+        if (val & 0xFFFF) == 0: break
         tbl.append(val)
+        #eprintf("sym %08x" % val)
         htoff = htoff + (4 if elf.is32bit else 8)
 
     return tbl

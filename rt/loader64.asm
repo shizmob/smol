@@ -137,16 +137,35 @@ _smol_start:
 %endif
             add rax, [r12 + L_ADDR_OFF]
 %ifdef IFUNC_SUPPORT
-           and cl, ST_INFO__STT_MASK
-           cmp cl, STT_GNU_IFUNC
-            je .ifunc
+            and cl, ST_INFO__STT_MASK
+            cmp cl, STT_GNU_IFUNC
+%ifdef SKIP_ZERO_VALUE
+            jne short .no_ifunc2
+           push rdi
+           push r11
+           call rax
+            pop r11
+            pop rdi
+        .no_ifunc2:
+%else           ; !SKIP_ZERO_VALUE
+             je short .ifunc
         .no_ifunc:
+%endif
 %endif
           stosq
             cmp word [rdi], 0
+%ifdef IFUNC_SUPPORT
+%ifdef SKIP_ZERO_VALUE
+            jne .next_hash;short .next_hash
+%else           ; IFUNC_SUPPORT && !SKIP_ZERO_VALUE
             jne short .next_hash
+%endif
+%else           ; !IFUNC_SUPPORT
+            jne short .next_hash
+%endif
 
 %ifdef IFUNC_SUPPORT
+%ifndef SKIP_ZERO_VALUE
             jmp short .break_loop
         .ifunc:
          ;;int3 ; in this call, we lose rax rcx rdx rsi rdi r8 r9 r10 r11
@@ -170,6 +189,7 @@ _smol_start:
            ;pop rcx
             jmp short .no_ifunc
         .break_loop:
+%endif
 %endif
 
 ; if USE_DNLOAD_LOADER
