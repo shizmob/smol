@@ -4,6 +4,23 @@ from collections import OrderedDict
 
 from .shared import *
 
+fetch_width_from_bits = { 8: 'byte', 16: 'word', 32: 'dword', 64: 'qword' }
+
+def get_min_check_width(libraries, hashfn):
+    minv = 8 # can't go lower
+    for k, v in libraries.items():
+        for sym in v:
+            hv = hashfn(sym[0]) # sym == (name, reloc)
+            if (hv & 0xffffffff) == 0:
+                # this should (hopefully) NEVER happen
+                error("Aiee, all-zero hash for sym '%s'!" % sym)
+            elif (hv & 0xFFFF) == 0:
+                minv = max(minv, 32) # need at least 32 bits
+            elif (hv & 0xFF) == 0:
+                minv = max(minv, 16) # need at least 16 bits
+
+    return minv
+
 def sort_imports(libraries, hashfn):
     #eprintf("in: " + str(libraries))
 
@@ -28,6 +45,9 @@ def output_x86(libraries, nx, h16, outf, det):
 
     hashfn = hash_bsd2 if h16 else hash_djb2
     if det: libraries = sort_imports(libraries, hashfn)
+
+    outf.write('%%define HASH_END_TYP %s\n' %
+               fetch_width_from_bits[get_min_check_width(libraries, hashfn)])
 
     usedrelocs = set({})
     for library, symrels in libraries.items():
@@ -74,7 +94,7 @@ dynamic.end:
         for sym, reloc in symrels:
             # meh
             if reloc != 'R_386_PC32' and reloc != 'R_386_GOT32X':
-                eprintf('Relocation type ' + reloc + ' of symbol ' + sym + ' unsupported!')
+                eprintf('Relocation type %s of symbol %s unsupported!' % (reloc, sym))
                 sys.exit(1)
 
             if nx:
@@ -118,6 +138,9 @@ def output_amd64(libraries, nx, h16, outf, det):
     hashfn = hash_djb2 #hash_bsd2 if h16 else hash_djb2
     if det: libraries = sort_imports(libraries, hashfn)
 
+    outf.write('%%define HASH_END_TYP %s\n' %
+               fetch_width_from_bits[get_min_check_width(libraries, hashfn)])
+
     outf.write('; vim: set ft=nasm:\n')
     outf.write('bits 64\n')
 
@@ -153,7 +176,7 @@ dynamic.end:
         for sym, reloc in symrels:
             if reloc not in ['R_X86_64_PLT32', 'R_X86_64_GOTPCRELX', \
                              'R_X86_64_REX_GOTPCRELX', 'R_X86_64_GOTPCREL']:
-                error('Relocation type ' + reloc + ' of symbol ' + sym + ' unsupported!')
+                error('Relocation type %s of symbol %s unsupported!' % (reloc, sym))
 
             if reloc in ['R_X86_64_GOTPCRELX', 'R_X86_64_REX_GOTPCRELX', \
                          'R_X86_64_GOTPCREL']:
@@ -189,5 +212,5 @@ def output(arch, libraries, nx, h16, outf, det):
     if arch == 'i386': output_x86(libraries, nx, h16, outf, det)
     elif arch == 'x86_64': output_amd64(libraries, nx, h16, outf, det)
     else:
-        error("E: cannot emit for arch '" + str(arch) + "'")
+        error("E: cannot emit for arch '%s'" % str(arch))
 

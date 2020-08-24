@@ -2,6 +2,11 @@
 
 %include "rtld.inc"
 
+%ifndef HASH_END_TYP
+%warning "W: HASH_END_TYP not defined, falling back to 16-bit!"
+%define HASH_END_TYP word
+%endif
+
 %define R10_BIAS (0x178)
 
 %ifdef ELF_TYPE
@@ -186,7 +191,7 @@ _smol_start:
 %ifdef USE_JMP_BYTES
             inc edi ; skip 0xE9 (jmp) offset
 %endif
-            cmp word [edi], 0
+            cmp HASH_END_TYP [edi], 0
             jne short .next_hash
 
 ; if USE_DNLOAD_LOADER
@@ -300,7 +305,7 @@ repne scasd
 %ifdef USE_JMP_BYTES
                 inc edi
 %endif
-                cmp word [edi], 0
+                cmp HASH_END_TYP [edi], 0
                 jne short .next_hash
 
        pop eax ; get rid of leftover ecx on stack

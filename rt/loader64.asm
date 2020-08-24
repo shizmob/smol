@@ -1,5 +1,10 @@
 ; vim: set ft=nasm:
 
+%ifndef HASH_END_TYP
+%warning "W: HASH_END_TYP not defined, falling back to 16-bit!"
+%define HASH_END_TYP word
+%endif
+
 ;%define R10_BIAS (0x2B4)
 %define R10_BIAS (0x2B4+0x40)
 
@@ -153,7 +158,7 @@ _smol_start:
 %endif
 %endif
           stosq
-            cmp word [rdi], 0
+            cmp HASH_END_TYP [rdi], 0
 %ifdef IFUNC_SUPPORT
 %ifdef SKIP_ZERO_VALUE
             jne .next_hash;short .next_hash
@@ -311,7 +316,7 @@ repne scasd ; technically, scasq should be used, but meh. this is 1 byte smaller
 ; IFUNC_SUPPORT
 %endif
           stosq ; *phash = finaladdr
-            cmp word [rdi], 0
+            cmp HASH_END_TYP [rdi], 0
             jne short .next_hash
             ; } while (1)
 ;       jmp short .next_hash
