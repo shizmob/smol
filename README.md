@@ -18,13 +18,14 @@ PoC by Shiz, bugfixing and 64-bit version by PoroCYon.
 the smol startup/symbol resolving code will jump to an undefined location.
 
 ```sh
-./smold.py -fuse-interp -falign-stack [--opts...] -lfoo -lbar input.o... output.elf
+# example:
+./smold.py -fuse-dnload-loader [--opts...] -lfoo -lbar input.o... output.elf
 ```
 
 ```
-usage: smold.py [-h] [-m TARGET] [-l LIB] [-L DIR] [-s] [-n] [-d] [-fuse-interp] [-falign-stack] [-fuse-nx] [-fuse-dnload-loader] [-fskip-zero-value] [-fuse-dt-debug] [-fuse-dl-fini] [-fskip-entries] [-fno-start-arg] [-funsafe-dynamic]
-                [-fifunc-support] [-fifunc-strict-cconv] [--nasm NASM] [--cc CC] [--readelf READELF] [-Wc CFLAGS] [-Wa ASFLAGS] [-Wl LDFLAGS] [--smolrt SMOLRT] [--smolld SMOLLD] [--gen-rt-only] [--verbose] [--keeptmp]
-                [--debugout DEBUGOUT]
+usage: smold.py [-h] [-m TARGET] [-l LIB] [-L DIR] [-s] [-c] [-n] [-d] [-fno-use-interp] [-fno-align-stack] [-fuse-nx] [-fuse-dnload-loader] [-fno-skip-zero-value] [-fuse-dt-debug] [-fuse-dl-fini] [-fskip-entries] [-fno-start-arg]
+                [-funsafe-dynamic] [-fno-ifunc-support] [-fifunc-strict-cconv] [--nasm NASM] [--cc CC] [--readelf READELF] [-Wc CFLAGS] [-Wa ASFLAGS] [-Wl LDFLAGS] [--smolrt SMOLRT] [--smolld SMOLLD] [--gen-rt-only] [--verbose]
+                [--keeptmp] [--debugout DEBUGOUT]
                 input [input ...] output
 
 positional arguments:
@@ -38,16 +39,17 @@ optional arguments:
   -l LIB, --library LIB
                         libraries to link against
   -L DIR, --libdir DIR  directories to search libraries in
-  -s, --hash16          Use 16-bit (BSD) hashes instead of 32-bit djb2 hashes. Implies -fuse-dnload-loader
+  -s, --hash16          Use 16-bit (BSD2) hashes instead of 32-bit djb2 hashes. Implies -fuse-dnload-loader. Only usable for 32-bit output.
+  -c, --crc32c          Use Intel's crc32 intrinsic for hashing. Implies -fuse-dnload-loader. Conflicts with `--hash16'.
   -n, --nx              Use NX (i.e. don't use RWE pages). Costs the size of one phdr, plus some extra bytes on i386.
   -d, --det             Make the order of imports deterministic (default: just use whatever binutils throws at us)
-  -fuse-interp          Include a program interpreter header (PT_INTERP). If not enabled, ld.so has to be invoked manually by the end user.
-  -falign-stack         Align the stack before running user code (_start). If not enabled, this has to be done manually. Costs 1 byte.
+  -fno-use-interp       Don't include a program interpreter header (PT_INTERP). If not enabled, ld.so has to be invoked manually by the end user.
+  -fno-align-stack      Don't align the stack before running user code (_start). If not enabled, this has to be done manually. Frees 1 byte.
   -fuse-nx              Don't use one big RWE segment, but use separate RW and RE ones. Use this to keep strict kernels (PaX/grsec) happy. Costs at least the size of one program header entry.
   -fuse-dnload-loader   Use a dnload-style loader for resolving symbols, which doesn't depend on nonstandard/undocumented ELF and ld.so features, but is slightly larger. If not enabled, a smaller custom loader is used which assumes
                         glibc.
-  -fskip-zero-value     Skip an ELF symbol with a zero address (a weak symbol) when parsing libraries at runtime. Try enabling this if you're experiencing sudden breakage. However, many libraries don't use weak symbols, so this doesn't
-                        often pose a problem. Costs ~5 bytes.
+  -fno-skip-zero-value  Don't skip an ELF symbol with a zero address (a weak symbol) when parsing libraries at runtime. Try enabling this if you're experiencing sudden breakage. However, many libraries don't use weak symbols, so this
+                        doesn't often pose a problem. Frees ~5 bytes.
   -fuse-dt-debug        Use the DT_DEBUG Dyn header to access the link_map, which doesn't depend on nonstandard/undocumented ELF and ld.so features. If not enabled, the link_map is accessed using data leaked to the entrypoint by ld.so,
                         which assumes glibc. Costs ~10 bytes.
   -fuse-dl-fini         Pass _dl_fini to the user entrypoint, which should be done to properly comply with all standards, but is very often not needed at all. Costs 2 bytes.
@@ -55,7 +57,7 @@ optional arguments:
   -fno-start-arg        Don't pass a pointer to argc/argv/envp to the entrypoint using the standard calling convention. This means you need to read these yourself in assembly if you want to use them! (envp is a preprequisite for X11,
                         because it needs $DISPLAY.) Frees 3 bytes.
   -funsafe-dynamic      Don't end the ELF Dyn table with a DT_NULL entry. This might cause ld.so to interpret the entire binary as the Dyn table, so only enable this if you're sure this won't break things!
-  -fifunc-support       Support linking to IFUNCs. Probably needed on x86_64, but costs ~16 bytes. Ignored on platforms without IFUNC support.
+  -fno-ifunc-support    Support linking to IFUNCs. Probably needed on x86_64, but costs ~16 bytes. Ignored on platforms without IFUNC support.
   -fifunc-strict-cconv  On i386, if -fifunc-support is specified, strictly follow the calling convention rules. Probably not needed, but you never know.
   --nasm NASM           which nasm binary to use
   --cc CC               which cc binary to use (MUST BE GCC!)
