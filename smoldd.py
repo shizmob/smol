@@ -114,18 +114,26 @@ def get_hashtbl(elf, blob, args):
 
     tbl = []
     while True:
+        hashsz = 2 if elf.is32bit and args.hash16 else 4
+
         #eprintf("sym from 0x%08x" % htoff)
-        if len(blob)-htoff < 4:
+        #eprintf("sym end at 0x%08x, blob end at 0x%08x" % (htoff+hashsz, len(blob)))
+        if htoff+hashsz > len(blob):
             #eprintf("htoff = 0x%08x, len=%08x" % (htoff, len(blob)))
             if len(blob) <= htoff and len(tbl) > 0:
                 break
             #if elf.is32bit:
             if struct.unpack('<B', blob[htoff:htoff+1])[0] == 0:
                 break
+            else:
+                assert False, "AAAAA rest is %s" % repr(blob[htoff:])
             #else:
             #    if struct.unpack('<H', blob[htoff:htoff+2])[0] == 0:
             #        break
-        val = struct.unpack('<I', blob[htoff:htoff+4])[0]
+            #    else:
+            #        assert False, "AAAAA rest is %s" % repr(blob[htoff:])
+        val = struct.unpack(('<I' if hashsz == 4 else '<H'),
+                            blob[htoff:htoff+hashsz])[0]
         if (val & 0xFFFF) == 0: break
         tbl.append(val)
         #eprintf("sym %08x" % val)

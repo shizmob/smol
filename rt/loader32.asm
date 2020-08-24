@@ -107,7 +107,7 @@ _smol_start:
 
                 ; source in eax, result in eax
 %ifdef USE_CRC32C_HASH
-           xor ecx, ecx
+            xor eax, eax
 %else
     %ifndef USE_HASH16
            push ebx
@@ -125,6 +125,7 @@ _smol_start:
               lodsb
                  or al, al
                xchg eax, ecx
+              ;jcxz .breakhash
                  jz short .breakhash
 
 %ifdef USE_CRC32C_HASH
@@ -144,8 +145,10 @@ _smol_start:
                 jmp short .nexthashiter
 
         .breakhash:
+%ifndef USE_CRC32C_HASH
 %ifndef USE_HASH16
             pop ebx
+%endif
 %endif
             pop ecx
 ;%ifndef USE_HASH16
