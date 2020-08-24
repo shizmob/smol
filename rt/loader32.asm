@@ -46,6 +46,7 @@ _smol_start:
    push _symbols
 %endif
 
+;.loopme: jmp short .loopme
 %ifdef USE_DNLOAD_LOADER
    push eax
     pop ebp
@@ -149,17 +150,29 @@ _smol_start:
 
         .hasheq:
             mov eax, [edx + ST_VALUE_OFF]
+            mov cl , [edx + ST_INFO_OFF ]
             pop edx
 %ifdef SKIP_ZERO_VALUE
              or eax, eax
              jz short .next_link
 %endif
-            mov esi, [edx + L_ADDR_OFF]
+           ;mov esi, [edx + L_ADDR_OFF]
            ;cmp eax, esi
            ; jb short .hasheqnorel
-            add eax, esi
+           ;add eax, esi
+            add eax, [edx + L_ADDR_OFF] ; TODO: CONDITIONAL!
         .hasheqnorel:
-           ;add eax, [edx + L_ADDR_OFF] ; TODO: CONDITIONAL!
+%ifdef IFUNC_SUPPORT
+           xchg ecx, eax
+            and al, ST_INFO__STT_MASK
+            cmp al, STT_GNU_IFUNC
+            jne short .no_ifunc
+          ;int3
+           call ecx
+             db 0x3c ; cmp al, <next byte == xchg ecx,eax> --> jump over next insn
+        .no_ifunc:
+           xchg ecx, eax
+%endif
           stosd
 %ifdef USE_JMP_BYTES
             inc edi ; skip 0xE9 (jmp) offset
@@ -169,7 +182,6 @@ _smol_start:
 
 ; if USE_DNLOAD_LOADER
 %else
-
         mov [_smol_linkmap], eax
 
         mov ebx, eax
@@ -240,13 +252,32 @@ repne scasd
                 mov eax, [ebp + L_INFO_DT_SYMTAB_OFF]
                 mov eax, [eax + D_UN_PTR_OFF]
                 lea eax, [eax + ebx * 8]
+%ifdef IFUNC_SUPPORT
+                mov cl , [eax + ebx * 8 + ST_INFO_OFF ]
+%endif
                 mov eax, [eax + ebx * 8 + ST_VALUE_OFF]
 %ifdef SKIP_ZERO_VALUE
                  or eax, eax
                  jz short .next_link
 %endif
 
+               ;mov esi, [edx + L_ADDR_OFF]
+               ;cmp eax, esi
+               ; jb short .hasheqnorel
+               ;add eax, esi
                 add eax, [ebp + L_ADDR_OFF]
+            .hasheqnorel:
+%ifdef IFUNC_SUPPORT
+               xchg ecx, eax
+                and al, ST_INFO__STT_MASK
+                cmp al, STT_GNU_IFUNC
+                jne short .no_ifunc
+              ;int3
+               call ecx
+                 db 0x3c ; cmp al, <next byte == xchg ecx,eax> --> jump over next insn
+            .no_ifunc:
+               xchg ecx, eax
+%endif
               stosd
 %ifdef USE_JMP_BYTES
                 inc edi
