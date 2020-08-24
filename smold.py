@@ -101,6 +101,9 @@ def main():
     parser.add_argument('--smolld', default=os.getcwd()+"/ld",
         help="Directory containing the smol linker scripts")
 
+    parser.add_argument('--gen-rt-only', default=False, action='store_true', \
+        help="Only generate the headers/runtime assembly source file, instead"+\
+             " of doing a full link. (I.e. fall back to pre-release behavior.)")
     parser.add_argument('--verbose', default=False, action='store_true', \
         help="Be verbose about what happens and which subcommands are invoked")
     parser.add_argument('--keeptmp', default=False, action='store_true', \
@@ -144,9 +147,11 @@ def main():
 
     objinput = None
     objinputistemp = False
-    tmp_asm_file = tempfile.mkstemp(prefix='smoltab',suffix='.asm',text=True)
-    tmp_asm_fd = tmp_asm_file[0]
-    tmp_asm_file = tmp_asm_file[1]
+    tmp_asm_file = args.output
+    if not args.gen_rt_only:
+        tmp_asm_file = tempfile.mkstemp(prefix='smoltab',suffix='.asm',text=True)
+        tmp_asm_fd = tmp_asm_file[0]
+        tmp_asm_file = tmp_asm_file[1]
     tmp_elf_file = tempfile.mkstemp(prefix='smolout',suffix='.o')
     os.close(tmp_elf_file[0])
     tmp_elf_file = tmp_elf_file[1]
@@ -154,6 +159,7 @@ def main():
         # if >1 input OR input is LTO object:
         if len(args.input) > 1 or has_lto_object(args.readelf, args.input):
             fd, objinput = tempfile.mkstemp(prefix='smolin',suffix='.o')
+            objinputistemp = True
             os.close(fd)
             cc_relink_objs(args.verbose, args.cc, arch, args.input, objinput, args.cflags)
         else: objinput = args.input[0]
@@ -182,16 +188,17 @@ def main():
         nasm_assemble_elfhdr(args.verbose, args.nasm, arch, args.smolrt,
                              tmp_asm_file, tmp_elf_file, args.asflags)
 
-        # link with LD into the final executable, w/ special linker script
-        ld_link_final(args.verbose, args.cc, arch, args.smolld, [objinput, tmp_elf_file],
-                      args.output, args.ldflags, False)
-        if args.debugout is not None:
+        if not args.gen_rt_only:
+            # link with LD into the final executable, w/ special linker script
             ld_link_final(args.verbose, args.cc, arch, args.smolld, [objinput, tmp_elf_file],
-                          args.debugout, args.ldflags, True)
+                          args.output, args.ldflags, False)
+            if args.debugout is not None:
+                ld_link_final(args.verbose, args.cc, arch, args.smolld, [objinput, tmp_elf_file],
+                              args.debugout, args.ldflags, True)
     finally:
         if not args.keeptmp:
             if objinputistemp: os.remove(objinput)
-            os.remove(tmp_asm_file)
+            if not args.gen_rt_only: os.remove(tmp_asm_file)
             os.remove(tmp_elf_file)
 
 if __name__ == '__main__':
