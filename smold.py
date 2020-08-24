@@ -14,6 +14,124 @@ from smol.parse  import *
 from smol.emit   import *
 from smol.cnl    import *
 
+def preproc_args(args):
+    if args.hash16 and args.crc32c: # shouldn't happen anymore
+        error("Cannot combine --hash16 and --crc32c!")
+
+    if args.debug:
+        args.cflags.append('-g')
+        args.ldflags.append('-g')
+        args.asflags.append('-g')
+
+    if args.hash16 or args.crc32c:
+        args.fuse_dnload_loader = True
+
+    args.fskip_zero_value = args.fskip_zero_value or args.fuse_dnload_loader
+
+    if args.fskip_zero_value: args.asflags.insert(0, "-DSKIP_ZERO_VALUE")
+    if args.fuse_nx: args.asflags.insert(0, "-DUSE_NX")
+    if args.fskip_entries: args.asflags.insert(0, "-DSKIP_ENTRIES")
+    if args.funsafe_dynamic: args.asflags.insert(0, "-DUNSAFE_DYNAMIC")
+    if args.fno_start_arg: args.asflags.insert(0, "-DNO_START_ARG")
+    if args.fuse_dl_fini: args.asflags.insert(0, "-DUSE_DL_FINI")
+    if args.fuse_dt_debug: args.asflags.insert(0, "-DUSE_DT_DEBUG")
+    if args.fuse_dnload_loader: args.asflags.insert(0, "-DUSE_DNLOAD_LOADER")
+    if args.fuse_interp: args.asflags.insert(0, "-DUSE_INTERP")
+    if args.falign_stack: args.asflags.insert(0, "-DALIGN_STACK")
+    if args.fifunc_support: args.asflags.insert(0, "-DIFUNC_SUPPORT")
+    if args.fifunc_strict_cconv: args.asflags.insert(0, "-DIFUNC_CORRECT_CCONV")
+    if args.hang_on_startup: args.asflags.insert(0, "-DHANG_ON_STARTUP")
+
+    for x in ['nasm','cc','readelf']:
+        val = args.__dict__[x]
+        if val is None or not os.path.isfile(val):
+            error("'%s' binary%s not found" %
+                  (x, ("" if val is None else (" ('%s')" % val))))
+
+    arch = args.target.tolower() if len(args.target) != 0 else decide_arch(args.input)
+    if arch not in archmagic:
+        error("Unknown/unsupported architecture '%s'" % str(arch))
+    if args.verbose: eprintf("arch: %s" % str(arch))
+
+    if args.hash16 and arch not in ('i386', 3):
+        error("Cannot use --hash16 for arch `%s' (not i386)" % (arch))
+
+    return args, arch
+
+
+def do_smol_run(args, arch):
+    objinput = None
+    objinputistemp = False
+    tmp_asm_file, tmp_elf_fd, tmp_elf_file = None, None, None
+    if not args.gen_rt_only:
+        tmp_asm_file = tempfile.mkstemp(prefix='smoltab',suffix='.asm',text=True)
+        tmp_asm_fd = tmp_asm_file[0]
+        tmp_asm_file = tmp_asm_file[1]
+        tmp_elf_file = tempfile.mkstemp(prefix='smolout',suffix='.o')
+        os.close(tmp_elf_file[0])
+        tmp_elf_file = tmp_elf_file[1]
+
+    try:
+        #for inp in args.input:
+        #    if not is_valid_elf(inp):
+        #        error("Input file '%s' is not a valid ELF file!" % inp)
+
+        # if >1 input OR input is LTO object:
+        if len(args.input) > 1 or has_lto_object(args.readelf, args.input):
+            fd, objinput = tempfile.mkstemp(prefix='smolin',suffix='.o')
+            objinputistemp = True
+            os.close(fd)
+            cc_relink_objs(args.verbose, args.cc, arch, args.input, objinput, args.cflags)
+        else:
+            objinput = args.input[0]
+
+        # generate smol hashtab
+        cc_paths = get_cc_paths(args.cc)
+        syms = get_needed_syms(args.readelf, objinput)
+        spaths = args.libdir + cc_paths['libraries']
+        libraries = cc_paths['libraries']
+        libs = find_libs(spaths, args.library)
+        if args.verbose:
+            eprintf("libs = %s" % str(libs))
+
+        libs_symbol_map = build_symbol_map(args.readelf, libs)
+        #symbols = {}
+        #for symbol, reloc in syms:
+        #    if symbol not in libs_symbol_map:
+        #        error("could not find symbol: {}".format(symbol))
+        #    libs_for_symbol = libs_symbol_map[symbol]
+        #    if len(libs_for_symbol) > 1:
+        #        error("E: the symbol '%s' is provided by more than one library: %s"
+        #              % (symbol, str(libs_for_symbol)))
+        #    library = libs_for_symbol.pop()
+        #    symbols.setdefault(library, [])
+        #    symbols[library].append((symbol, reloc))
+        symbols = resolve_extern_symbols(syms, libs_symbol_map, args)
+
+        with (open(args.output,'w') if args.gen_rt_only
+                                    else os.fdopen(tmp_asm_fd, mode='w')) as taf:
+            output(arch, symbols, args.nx, get_hash_id(args.hash16, args.crc32c), taf, args.det)
+            if args.verbose:
+                eprintf("wrote symtab to %s" % tmp_asm_file)
+
+        if not args.gen_rt_only:
+            # assemble hash table/ELF header
+            nasm_assemble_elfhdr(args.verbose, args.nasm, arch, args.smolrt,
+                                 tmp_asm_file, tmp_elf_file, args.asflags)
+
+            # link with LD into the final executable, w/ special linker script
+            ld_link_final(args.verbose, args.cc, arch, args.smolld, [objinput, tmp_elf_file],
+                          args.output, args.ldflags, False)
+            if args.debugout is not None:
+                ld_link_final(args.verbose, args.cc, arch, args.smolld, [objinput, tmp_elf_file],
+                              args.debugout, args.ldflags, True)
+    finally:
+        if not args.keeptmp:
+            if objinputistemp: os.remove(objinput)
+            if not args.gen_rt_only: os.remove(tmp_asm_file)
+            os.remove(tmp_elf_file)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-m', '--target', default='', \
@@ -146,109 +264,9 @@ def main():
 
     args = parser.parse_args()
 
-    if args.hash16 and args.crc32c: # shouldn't happen anymore
-        error("Cannot combine --hash16 and --crc32c!")
+    args, arch = preproc_args(args)
+    do_smol_run(args, arch)
 
-    if args.debug:
-        args.cflags.append('-g')
-        args.ldflags.append('-g')
-        args.asflags.append('-g')
-
-    if args.hash16 or args.crc32c:
-        args.fuse_dnload_loader = True
-
-    args.fskip_zero_value = args.fskip_zero_value or args.fuse_dnload_loader
-
-    if args.fskip_zero_value: args.asflags.insert(0, "-DSKIP_ZERO_VALUE")
-    if args.fuse_nx: args.asflags.insert(0, "-DUSE_NX")
-    if args.fskip_entries: args.asflags.insert(0, "-DSKIP_ENTRIES")
-    if args.funsafe_dynamic: args.asflags.insert(0, "-DUNSAFE_DYNAMIC")
-    if args.fno_start_arg: args.asflags.insert(0, "-DNO_START_ARG")
-    if args.fuse_dl_fini: args.asflags.insert(0, "-DUSE_DL_FINI")
-    if args.fuse_dt_debug: args.asflags.insert(0, "-DUSE_DT_DEBUG")
-    if args.fuse_dnload_loader: args.asflags.insert(0, "-DUSE_DNLOAD_LOADER")
-    if args.fuse_interp: args.asflags.insert(0, "-DUSE_INTERP")
-    if args.falign_stack: args.asflags.insert(0, "-DALIGN_STACK")
-    if args.fifunc_support: args.asflags.insert(0, "-DIFUNC_SUPPORT")
-    if args.fifunc_strict_cconv: args.asflags.insert(0, "-DIFUNC_CORRECT_CCONV")
-    if args.hang_on_startup: args.asflags.insert(0, "-DHANG_ON_STARTUP")
-
-    for x in ['nasm','cc','readelf']:
-        val = args.__dict__[x]
-        if val is None or not os.path.isfile(val):
-            error("'%s' binary%s not found" %
-                  (x, ("" if val is None else (" ('%s')" % val))))
-
-    arch = args.target.tolower() if len(args.target) != 0 else decide_arch(args.input)
-    if arch not in archmagic:
-        error("Unknown/unsupported architecture '%s'" % str(arch))
-    if args.verbose: eprintf("arch: %s" % str(arch))
-
-    if args.hash16 and arch not in ('i386', 3):
-        error("Cannot use --hash16 for arch `%s' (not i386)" % (arch))
-
-    objinput = None
-    objinputistemp = False
-    tmp_asm_file, tmp_elf_fd, tmp_elf_file = None, None, None
-    if not args.gen_rt_only:
-        tmp_asm_file = tempfile.mkstemp(prefix='smoltab',suffix='.asm',text=True)
-        tmp_asm_fd = tmp_asm_file[0]
-        tmp_asm_file = tmp_asm_file[1]
-        tmp_elf_file = tempfile.mkstemp(prefix='smolout',suffix='.o')
-        os.close(tmp_elf_file[0])
-        tmp_elf_file = tmp_elf_file[1]
-
-    try:
-        # if >1 input OR input is LTO object:
-        if len(args.input) > 1 or has_lto_object(args.readelf, args.input):
-            fd, objinput = tempfile.mkstemp(prefix='smolin',suffix='.o')
-            objinputistemp = True
-            os.close(fd)
-            cc_relink_objs(args.verbose, args.cc, arch, args.input, objinput, args.cflags)
-        else: objinput = args.input[0]
-
-        # generate smol hashtab
-        cc_paths = get_cc_paths(args.cc)
-        syms = get_needed_syms(args.readelf, objinput)
-        spaths = args.libdir + cc_paths['libraries']
-        libraries = cc_paths['libraries']
-        libs = find_libs(spaths, args.library)
-        if args.verbose: eprintf("libs = %s" % str(libs))
-        libs_symbol_map = build_symbol_map(args.readelf, libs)
-        symbols = {}
-        for symbol, reloc in syms:
-            if symbol not in libs_symbol_map:
-                error("could not find symbol: {}".format(symbol))
-            libs_for_symbol = libs_symbol_map[symbol]
-            if len(libs_for_symbol) > 1:
-                error("E: the symbol '%s' is provided by more than one library: %s"
-                      % (symbol, str(libs_for_symbol)))
-            library = libs_for_symbol.pop()
-            symbols.setdefault(library, [])
-            symbols[library].append((symbol, reloc))
-
-        with (open(args.output,'w') if args.gen_rt_only
-                                    else os.fdopen(tmp_asm_fd, mode='w')) as taf:
-            output(arch, symbols, args.nx, get_hash_id(args.hash16, args.crc32c), taf, args.det)
-            if args.verbose:
-                eprintf("wrote symtab to %s" % tmp_asm_file)
-
-        if not args.gen_rt_only:
-            # assemble hash table/ELF header
-            nasm_assemble_elfhdr(args.verbose, args.nasm, arch, args.smolrt,
-                                 tmp_asm_file, tmp_elf_file, args.asflags)
-
-            # link with LD into the final executable, w/ special linker script
-            ld_link_final(args.verbose, args.cc, arch, args.smolld, [objinput, tmp_elf_file],
-                          args.output, args.ldflags, False)
-            if args.debugout is not None:
-                ld_link_final(args.verbose, args.cc, arch, args.smolld, [objinput, tmp_elf_file],
-                              args.debugout, args.ldflags, True)
-    finally:
-        if not args.keeptmp:
-            if objinputistemp: os.remove(objinput)
-            if not args.gen_rt_only: os.remove(tmp_asm_file)
-            os.remove(tmp_elf_file)
 
 if __name__ == '__main__':
     rv = main()

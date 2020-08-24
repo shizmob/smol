@@ -12,13 +12,15 @@ from smol.parse  import *
 
 
 def readbyte(blob, off): return struct.unpack('<B', blob[off:off+1])[0], (off+1)
+def readshort(blob, off):return struct.unpack('<H', blob[off:off+2])[0], (off+2)
 def readint(blob, off):  return struct.unpack('<I', blob[off:off+4])[0], (off+4)
 def readlong(blob, off): return struct.unpack('<Q', blob[off:off+8])[0], (off+8)
 def readstr(blob, off):
     text = bytearray()
     while True:
         char, off = readbyte(blob, off)
-        if char == 0: break
+        if char == 0:
+            break
 
         text.append(char)
 
@@ -34,7 +36,8 @@ def find_libs(deflibs, libname):
     dirs = os.environ.get('LD_LIBRARY_PATH','').split(':') + deflibs
 
     for d in dirs:
-        for f in glob.glob(glob.escape(d + '/' + libname) + '*'): yield f
+        for f in glob.glob(glob.escape("%s/%s" % (d, libname)) + '*'):
+            yield f
 
 def build_hashtab(readelf_bin, lib, hashid):
     symbols = list_symbols(readelf_bin, lib)
@@ -79,7 +82,7 @@ def get_hashtbl(elf, blob, args):
         txtoff = txtoff + 1
 
         #eprintf("Hash table offset: 0x%08x?" % txtoff)
-        htaddr = struct.unpack('<I', blob[txtoff:txtoff+4])[0]
+        htaddr, ___ = readint(blob, txtoff)
     else: # 64-bit
         txtoff = addr2off(elf, elf.entry)
         # scan for 'push IMM32'
@@ -92,7 +95,7 @@ def get_hashtbl(elf, blob, args):
         # except, this is actually the value we're looking for when the binary
         # had been linked with -fuse-dnload-loader! so let's just check the
         # value
-        htaddr = struct.unpack('<I', blob[txtoff:txtoff+4])[0]
+        htaddr, ___ = readint(blob, txtoff)
 
         #eprintf("ELF entry == 0x%08x" % elf.entry)
         if htaddr == elf.entry:
@@ -103,7 +106,7 @@ def get_hashtbl(elf, blob, args):
             txtoff = txtoff + 1
 
             #eprintf("Hash table offset: 0x%08x?" % txtoff)
-            htaddr = struct.unpack('<I', blob[txtoff:txtoff+4])[0]
+            htaddr, ___ = readint(blob, txtoff)
         else:
             pass#eprintf("Hash table offset: 0x%08x?" % txtoff)
 
@@ -123,7 +126,7 @@ def get_hashtbl(elf, blob, args):
             if len(blob) <= htoff and len(tbl) > 0:
                 break
             #if elf.is32bit:
-            if struct.unpack('<B', blob[htoff:htoff+1])[0] == 0:
+            if readbyte(blob, htoff)[0] == 0:
                 break
             else:
                 assert False, "AAAAA rest is %s" % repr(blob[htoff:])
@@ -132,14 +135,51 @@ def get_hashtbl(elf, blob, args):
             #        break
             #    else:
             #        assert False, "AAAAA rest is %s" % repr(blob[htoff:])
-        val = struct.unpack(('<I' if hashsz == 4 else '<H'),
-                            blob[htoff:htoff+hashsz])[0]
-        if (val & 0xFFFF) == 0: break
+        val, ___ = (readshort if hashsz == 2 else readint)(blob, htoff)
+        if (val & 0xFFFF) == 0:
+            break
         tbl.append(val)
         #eprintf("sym %08x" % val)
         htoff = htoff + (4 if elf.is32bit else 8)
 
     return tbl
+
+def do_smoldd_run(args):
+    blob = args.input.read()
+    elf  = hackyelf.parse(blob)
+
+    deflibs = get_def_libpaths(args.cc, elf.is32bit)
+    needed = get_needed_libs(elf, blob)
+    neededpaths = dict((l,list(find_libs(deflibs, l))[0]) for l in needed)
+
+    htbl = get_hashtbl(elf, blob, args)
+
+    hashid = get_hash_id(args.hash16, args.crc32c)
+    libhashes = dict((l, build_hashtab(args.readelf, neededpaths[l], hashid)) for l in needed)
+
+    hashresolves = dict({})
+    noresolves   = []
+    for x in htbl:
+        done = False
+        for l, v in libhashes.items():
+            if x in v:
+                hashresolves.setdefault(l, {})[x] = v[x]
+                done = True
+                break
+        if not done:
+            noresolves.append(x)
+
+    for l, v in hashresolves.items():
+        print("%s:" % l)
+        for x in v.keys():
+            print("\t%08x -> %s" % (x, v[x]))
+
+    if len(noresolves) > 0:
+        print("UNRESOLVED:")
+        for x in noresolves:
+            print("\t%08x" % x)
+
+    return 0
 
 def main():
     parser = argparse.ArgumentParser()
@@ -162,43 +202,7 @@ def main():
         help="Use Intel's crc32 intrinsic for hashing. Conflicts with `--hash16'.")
     args = parser.parse_args()
 
-    blob = args.input.read()
-    elf  = hackyelf.parse(blob)
-
-    deflibs = get_def_libpaths(args.cc, elf.is32bit)
-    needed = get_needed_libs(elf, blob)
-    neededpaths = dict((l,list(find_libs(deflibs, l))[0]) for l in needed)
-
-    htbl = get_hashtbl(elf, blob, args)
-
-    hashid = get_hash_id(args.hash16, args.crc32c)
-    libhashes = dict((l, build_hashtab(args.readelf, neededpaths[l], hashid)) for l in needed)
-
-    hashresolves = dict({})
-    noresolves   = []
-    # TODO: group by libs
-    for x in htbl:
-        done = False
-        for l in libhashes.keys():
-            v = libhashes[l]
-            if x in v:
-                if l not in hashresolves: hashresolves[l] = dict({})
-                hashresolves[l][x] = v[x]
-                done = True
-                break
-        if not done: noresolves.append(x)
-
-    for l in hashresolves.keys():
-        print("%s:" % l)
-        v = hashresolves[l]
-        for x in v.keys():
-            print("\t%08x -> %s" % (x, v[x]))
-
-    if len(noresolves) > 0:
-        print("UNRESOLVED:")
-        for x in noresolves: print("\t%08x" % x)
-
-    return 0
+    return do_smoldd_run(args)
 
 if __name__ == '__main__':
     rv = main()

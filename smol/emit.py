@@ -24,18 +24,25 @@ def get_min_check_width(libraries, hashfn):
 def sort_imports(libraries, hashfn):
     #eprintf("in: " + str(libraries))
 
-    # sort libs by name length, then by name
-    ll = sorted(libraries.items(), key=lambda ls: (len(ls[0]), ls[0]))
+    # DON'T DO THIS: weak symbol stuff etc.
+    ## sort libs by name length, then by name
+    #ll = sorted(libraries.items(), key=lambda ls: (len(ls[0]), ls[0]))
 
-    for i in range(len(ll)):
-        # sort symbols by hash value
-        ll[i] = (ll[i][0], sorted(ll[i][1], key=lambda sr: hashfn(sr[0])))
+    #for i in range(len(ll)):
+    #    # sort symbols by hash value
+    #    ll[i] = (ll[i][0], sorted(ll[i][1], key=lambda sr: hashfn(sr[0])))
 
     #eprintf("out:" + str(dict(ll)))
 
     # insertion order only works with python >=3.6!
-    if sys.version_info < (3, 6): return OrderedDict(ll)
-    else: return dict(ll)
+    #if sys.version_info < (3, 6): return OrderedDict(ll)
+    #else: return dict(ll)
+
+    ll = libraries.items()
+    for k, v in ll:
+        libraries[k] = sorted(v, key=lambda sr: hashfn(sr[0]))
+
+    return libraries
 
 def output_x86(libraries, nx, hashid, outf, det):
     outf.write('; vim: set ft=nasm:\n') # be friendly
@@ -52,9 +59,10 @@ def output_x86(libraries, nx, hashid, outf, det):
     outf.write('%%define HASH_END_TYP %s\n' %
                fetch_width_from_bits[get_min_check_width(libraries, hashfn)])
 
-    usedrelocs = set({})
+    usedrelocs = set()
     for library, symrels in libraries.items():
-        for sym, reloc in symrels: usedrelocs.add(reloc)
+        for sym, reloc in symrels.items():
+            usedrelocs.add(reloc)
 
     if not(nx) and 'R_386_PC32' in usedrelocs and 'R_386_GOT32X' in usedrelocs:
         error("Using a mix of R_386_PC32 and R_386_GOT32X relocations! "+\
@@ -94,7 +102,7 @@ dynamic.end:
     outf.write('global _symbols\n')
     outf.write('_symbols:\n')
     for library, symrels in libraries.items():
-        for sym, reloc in symrels:
+        for sym, reloc in symrels.items():
             # meh
             if reloc != 'R_386_PC32' and reloc != 'R_386_GOT32X':
                 eprintf('Relocation type %s of symbol %s unsupported!' % (reloc, sym))
@@ -117,7 +125,7 @@ dynamic.end:
         outf.write('global _smolplt\n')
         outf.write('_smolplt:\n')
         for library, symrels in libraries.items():
-            for sym, reloc in symrels:
+            for sym, reloc in symrels.items():
                 outf.write("""\
 [section .text.smolplt.{name}]
 global {name}
@@ -179,7 +187,7 @@ dynamic.end:
     outf.write('global _symbols\n')
     outf.write('_symbols:\n')
     for library, symrels in libraries.items():
-        for sym, reloc in symrels:
+        for sym, reloc in symrels.items():
             if reloc not in ['R_X86_64_PLT32', 'R_X86_64_GOTPCRELX', \
                              'R_X86_64_REX_GOTPCRELX', 'R_X86_64_GOTPCREL']:
                 error('Relocation type %s of symbol %s unsupported!' % (reloc, sym))
@@ -200,7 +208,7 @@ global {name}
     outf.write('global _smolplt\n')
     outf.write('_smolplt:\n')
     for library, symrels in libraries.items():
-        for sym, reloc in symrels:
+        for sym, reloc in symrels.items():
             if reloc == 'R_X86_64_PLT32':
                 outf.write("""\
 [section .text.smolplt.{name}]

@@ -54,6 +54,8 @@ SECTIONS {
 
   _smol_dataandbss_size = _smol_bss_end - _smol_data_start;
 
+  _smol_total_memsize = . - _smol_origin;
+
   /* Stabs debugging sections.  */
   .stab          0 : { *(.stab) }
   .stabstr       0 : { *(.stabstr) }
@@ -99,7 +101,5 @@ SECTIONS {
   /DISCARD/ : {
      *(.*)
   }
-
-  _smol_total_memsize = . - _smol_origin;
 }
 

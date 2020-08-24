@@ -18,8 +18,8 @@ enhancements and bugfixes by blackle.
 `.text.startup._start`! Otherwise, the linker script will fail silently, and
 the smol startup/symbol resolving code will jump to an undefined location.
 
-***NOTE***: C++ exceptions, RTTI, global *external* variables, global
-constructors and destructors (the ELF `.ctors`/`.dtors`/
+***NOTE***: C++ exceptions, RTTI, global *external* variables, thread-local
+storage, global constructors and destructors (the ELF `.ctors`/`.dtors`/
 `attribute((con-/destructor))` things, not the C++ language constructs), ...
 aren't supported yet, and probably won't be anytime soon.
 
