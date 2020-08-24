@@ -17,15 +17,22 @@ PoC by Shiz, bugfixing and 64-bit version by PoroCYon.
 `.text.startup._start`! Otherwise, the linker script will fail silently, and
 the smol startup/symbol resolving code will jump to an undefined location.
 
+***NOTE***: C++ exceptions, RTTI, global *external* variables, global
+constructors and destructors (the ELF `.ctors`/`.dtors`/
+`attribute((con-/destructor))` things, not the C++ language constructs), ...
+aren't supported yet, and probably won't be anytime soon.
+
 ```sh
 # example:
 ./smold.py -fuse-dnload-loader [--opts...] -lfoo -lbar input.o... output.elf
 ```
 
 ```
-usage: smold.py [-h] [-m TARGET] [-l LIB] [-L DIR] [-s] [-c] [-n] [-d] [-fno-use-interp] [-fno-align-stack] [-fuse-nx] [-fuse-dnload-loader] [-fno-skip-zero-value] [-fuse-dt-debug] [-fuse-dl-fini] [-fskip-entries] [-fno-start-arg]
-                [-funsafe-dynamic] [-fno-ifunc-support] [-fifunc-strict-cconv] [--nasm NASM] [--cc CC] [--readelf READELF] [-Wc CFLAGS] [-Wa ASFLAGS] [-Wl LDFLAGS] [--smolrt SMOLRT] [--smolld SMOLLD] [--gen-rt-only] [--verbose]
-                [--keeptmp] [--debugout DEBUGOUT]
+usage: smold.py [-h] [-m TARGET] [-l LIB] [-L DIR] [-s | -c] [-n] [-d] [-g] [-fuse-interp] [-falign-stack]
+                [-fskip-zero-value] [-fifunc-support] [-fuse-dnload-loader] [-fuse-nx] [-fuse-dt-debug]
+                [-fuse-dl-fini] [-fskip-entries] [-fno-start-arg] [-funsafe-dynamic] [-fifunc-strict-cconv]
+                [--nasm NASM] [--cc CC] [--readelf READELF] [-Wc CFLAGS] [-Wa ASFLAGS] [-Wl LDFLAGS]
+                [--smolrt SMOLRT] [--smolld SMOLLD] [--gen-rt-only] [--verbose] [--keeptmp] [--debugout DEBUGOUT]
                 input [input ...] output
 
 positional arguments:
@@ -39,26 +46,45 @@ optional arguments:
   -l LIB, --library LIB
                         libraries to link against
   -L DIR, --libdir DIR  directories to search libraries in
-  -s, --hash16          Use 16-bit (BSD2) hashes instead of 32-bit djb2 hashes. Implies -fuse-dnload-loader. Only usable for 32-bit output.
-  -c, --crc32c          Use Intel's crc32 intrinsic for hashing. Implies -fuse-dnload-loader. Conflicts with `--hash16'.
-  -n, --nx              Use NX (i.e. don't use RWE pages). Costs the size of one phdr, plus some extra bytes on i386.
+  -s, --hash16          Use 16-bit (BSD2) hashes instead of 32-bit djb2 hashes. Implies -fuse-dnload-loader. Only
+                        usable for 32-bit output.
+  -c, --crc32c          Use Intel's crc32 intrinsic for hashing. Implies -fuse-dnload-loader. Conflicts with
+                        `--hash16'.
+  -n, --nx              Use NX (i.e. don't use RWE pages). Costs the size of one phdr, plus some extra bytes on
+                        i386.
   -d, --det             Make the order of imports deterministic (default: just use whatever binutils throws at us)
-  -fno-use-interp       Don't include a program interpreter header (PT_INTERP). If not enabled, ld.so has to be invoked manually by the end user.
-  -fno-align-stack      Don't align the stack before running user code (_start). If not enabled, this has to be done manually. Frees 1 byte.
-  -fuse-nx              Don't use one big RWE segment, but use separate RW and RE ones. Use this to keep strict kernels (PaX/grsec) happy. Costs at least the size of one program header entry.
-  -fuse-dnload-loader   Use a dnload-style loader for resolving symbols, which doesn't depend on nonstandard/undocumented ELF and ld.so features, but is slightly larger. If not enabled, a smaller custom loader is used which assumes
-                        glibc.
-  -fno-skip-zero-value  Don't skip an ELF symbol with a zero address (a weak symbol) when parsing libraries at runtime. Try enabling this if you're experiencing sudden breakage. However, many libraries don't use weak symbols, so this
-                        doesn't often pose a problem. Frees ~5 bytes.
-  -fuse-dt-debug        Use the DT_DEBUG Dyn header to access the link_map, which doesn't depend on nonstandard/undocumented ELF and ld.so features. If not enabled, the link_map is accessed using data leaked to the entrypoint by ld.so,
-                        which assumes glibc. Costs ~10 bytes.
-  -fuse-dl-fini         Pass _dl_fini to the user entrypoint, which should be done to properly comply with all standards, but is very often not needed at all. Costs 2 bytes.
-  -fskip-entries        Skip the first two entries in the link map (resp. ld.so and the vDSO). Speeds up symbol resolving, but costs ~5 bytes.
-  -fno-start-arg        Don't pass a pointer to argc/argv/envp to the entrypoint using the standard calling convention. This means you need to read these yourself in assembly if you want to use them! (envp is a preprequisite for X11,
-                        because it needs $DISPLAY.) Frees 3 bytes.
-  -funsafe-dynamic      Don't end the ELF Dyn table with a DT_NULL entry. This might cause ld.so to interpret the entire binary as the Dyn table, so only enable this if you're sure this won't break things!
-  -fno-ifunc-support    Support linking to IFUNCs. Probably needed on x86_64, but costs ~16 bytes. Ignored on platforms without IFUNC support.
-  -fifunc-strict-cconv  On i386, if -fifunc-support is specified, strictly follow the calling convention rules. Probably not needed, but you never know.
+  -g, --debug           Pass `-g' to the C compiler, assembler and linker. Only useful when `--debugout' is
+                        specified.
+  -fuse-interp          [Default ON] Include a program interpreter header (PT_INTERP). If not enabled, ld.so has to
+                        be invoked manually by the end user. Disable with `-fno-use-interp'.
+  -falign-stack         [Default ON] Align the stack before running user code (_start). If not enabled, this has to
+                        be done manually. Costs 1 byte. Disable with `-fno-align-stack'.
+  -fskip-zero-value     [Default: ON if `-fuse-dnload-loader' supplied, OFF otherwise] Skip an ELF symbol with a
+                        zero address (a weak symbol) when parsing libraries at runtime. Try enabling this if you're
+                        experiencing sudden breakage. However, many libraries don't use weak symbols, so this
+                        doesn't often pose a problem. Costs ~5 bytes.Disable with `-fno-skip-zero-value'.
+  -fifunc-support       [Default ON] Support linking to IFUNCs. Probably needed on x86_64, but costs ~16 bytes.
+                        Ignored on platforms without IFUNC support. Disable with `-fno-fifunc-support'.
+  -fuse-dnload-loader   Use a dnload-style loader for resolving symbols, which doesn't depend on
+                        nonstandard/undocumented ELF and ld.so features, but is slightly larger. If not enabled, a
+                        smaller custom loader is used which assumes glibc. `-fskip-zero-value' defaults to ON if
+                        this flag is supplied.
+  -fuse-nx              Don't use one big RWE segment, but use separate RW and RE ones. Use this to keep strict
+                        kernels (PaX/grsec) happy. Costs at least the size of one program header entry.
+  -fuse-dt-debug        Use the DT_DEBUG Dyn header to access the link_map, which doesn't depend on
+                        nonstandard/undocumented ELF and ld.so features. If not enabled, the link_map is accessed
+                        using data leaked to the entrypoint by ld.so, which assumes glibc. Costs ~10 bytes.
+  -fuse-dl-fini         Pass _dl_fini to the user entrypoint, which should be done to properly comply with all
+                        standards, but is very often not needed at all. Costs 2 bytes.
+  -fskip-entries        Skip the first two entries in the link map (resp. ld.so and the vDSO). Speeds up symbol
+                        resolving, but costs ~5 bytes.
+  -fno-start-arg        Don't pass a pointer to argc/argv/envp to the entrypoint using the standard calling
+                        convention. This means you need to read these yourself in assembly if you want to use them!
+                        (envp is a preprequisite for X11, because it needs $DISPLAY.) Frees 3 bytes.
+  -funsafe-dynamic      Don't end the ELF Dyn table with a DT_NULL entry. This might cause ld.so to interpret the
+                        entire binary as the Dyn table, so only enable this if you're sure this won't break things!
+  -fifunc-strict-cconv  On i386, if -fifunc-support is specified, strictly follow the calling convention rules.
+                        Probably not needed, but you never know.
   --nasm NASM           which nasm binary to use
   --cc CC               which cc binary to use (MUST BE GCC!)
   --readelf READELF     which readelf binary to use
@@ -70,10 +96,13 @@ optional arguments:
                         Flags to pass to the linker for the final linking step
   --smolrt SMOLRT       Directory containing the smol runtime sources
   --smolld SMOLLD       Directory containing the smol linker scripts
-  --gen-rt-only         Only generate the headers/runtime assembly source file, instead of doing a full link. (I.e. fall back to pre-release behavior.)
+  --gen-rt-only         Only generate the headers/runtime assembly source file, instead of doing a full link. (I.e.
+                        fall back to pre-release behavior.)
   --verbose             Be verbose about what happens and which subcommands are invoked
   --keeptmp             Keep temp files (only useful for debugging)
-  --debugout DEBUGOUT   Write out an additional, unrunnable debug ELF file with symbol information. (Useful for debugging with gdb, cannot be ran due to broken relocations.)
+  --debugout DEBUGOUT   Write out an additional, unrunnable debug ELF file with symbol information. (Useful for
+                        debugging with gdb, cannot be ran due to broken relocations.)
+  --hang-on-startup     Hang on startup until a debugger breaks the code out of the loop. Only useful for debugging.
 ```
 
 A minimal crt (and `_start` funcion) are provided in case you want to use `main`.
@@ -86,7 +115,7 @@ during dynamic linking. (Think of it as an equivalent of `ldd`, except that it
 also checks whether the imported functions are present as well.)
 
 ```
-usage: smoldd.py [-h] [--cc CC] [--readelf READELF] [--map MAP] input
+usage: smoldd.py [-h] [--cc CC] [--readelf READELF] [--map MAP] [-s | -c] input
 
 positional arguments:
   input              input file
@@ -95,7 +124,94 @@ optional arguments:
   -h, --help         show this help message and exit
   --cc CC            C compiler binary
   --readelf READELF  readelf binary
-  --map MAP          Get the address of the symbol hash table from the linker map output instead of attempting to parse the binary.
+  --map MAP          Get the address of the symbol hash table from the linker map
+                     output instead of attempting to parse the binary.
+  -s, --hash16       Use 16-bit (BSD2) hashes instead of 32-bit djb2 hashes. Only
+                     usable for 32-bit output.
+  -c, --crc32c       Use Intel's crc32 intrinsic for hashing. Conflicts with `--hash16'.
+```
+
+## Debugging your smol-ified executable
+
+So suddenly the output binaries are crashing, while non-smol-ified executables
+run just fine. What could've happened?
+
+First of all, it could be PEBCAK: are you compiling with the exact same set of
+compiler flags for the optimized and the regular builds? There could always be
+a broken codepath in the former.
+
+Secondly, did you enable any of the "evil" flags that can possibly break
+compatiblity, such as `-fno-use-interp`, `-fno-align-stack`,
+`-fno-skip-zero-value`, `-fno-ifunc-support`, `-fno-start-arg`,
+`-funsafe-dynamic`, etc.? Try disabling these first, or try specifying
+`-fskip-zero-value`, `-fifunc-strict-cconv`, `-fuse-nx`, `-fuse-dt-debug`,
+`-fuse-dl-fini` or `-fuse-dnload-loader` (or remove the last one if you already
+were using it). If you had to enable `-fuse-dt-debug` or mess with
+`-fuse-dnload-loader`, please file an issue. If you had to specify `-fuse-nx`,
+please don't use PaX/grsec for democoding.
+
+But let's assume smol is the cause of the issue here. The first thing you
+should do, is to check whether the crash happens in smol's runtime linking
+code, or your actual executable code. This can be done by adding an `int3`
+(x86) or `bkpt` (ARM) instruction or `__builtin_trap()` intrinsic (GCC/clang)
+at the very beginning of your `_start` function. If the binary is now exiting
+with a `Trace/breakpoint trap` or `Undefined instruction` error (or something
+similar) instead of a `Segmentation fault`, it means the segfault is happening
+after smol's runtime linker code has ran.
+
+### The error is happening in the smol runtime linking/startup code
+
+A common source of crashes here is that a symbol actually might not have been
+resolved correctly. Try checking the output of `smoldd.py`.
+
+If that isn't the cause, it's time to dig out GDB (see a later section), find
+out what roughly is going wrong, and send in an issue ticket.
+
+### The error is happening after the smol runtime linking/startup code
+
+If a segfault is happening here, it's most likely happening when the binary
+tries to call an external function. One cause if this can be bad stack
+alignment (try messing with `-f[no-]align-stack`, or fix your `_start` code).
+
+Another is that a symbol might have a 'value' (relative address) of zero, which
+means the function call turned into a jump to the ELF header of the library,
+instead of to the actual function. In this case, try specifying the
+`-fskip-zero-value` flag.
+
+Of course, it's still entirely possible it's a yet-unknown calling convention,
+reloction, or other issue. If it isn't one of the above known causes, it's yet
+again time to dust off your GDB skills and open an issue.
+
+### Attaching GDB to a smol-ified executable
+
+As you might have noticed, GDB cannot run smol-ified executables by itself, as
+the ELF headers are too messed up. However, the Linux kernel and glibc dynamic
+linker are able to parse it just fine. This means you'll have to attach a live
+process, ideally before it segfaults. As racing a below-one-millisecond
+timeframe is difficult, there is another solution: specify the `--hang-on-startup`
+flag. Then attach your (currently-stuck) process to GDB, increase the program
+counter manually to break out of the infinite loop, then continue debugging as
+usual.
+
+However, here you don't have any symbols available (let alone DWARF source
+info), which makes debugging a bit hard. This can be mitigated by specifying
+the `-g` flag, and loading the file specified by the `--debugout` flag into gdb,
+which will provide you with symbol and (if `-g` was specified) debugging info.
+
+A quick overview:
+
+```sh
+python3 ./smold.py -g --hang-on-startup --debugout=path/to/out.smol.dbg \
+    [usual args...] input... path/to/out.smol
+path/to/out.smol # run it (it will hang)
+^Z # background the hung process
+
+# 1. attach the backgrounded process
+# 2. break out of the loop (x86_64 example, s/rip/eip/g for i386)
+# 3. load symbol and debugging info
+gdb -ex "attach $(jobs sp)" \
+    -ex 'set $rip=$rip+2' \
+    path/to/out.smol.dbg
 ```
 
 ## Internal workings

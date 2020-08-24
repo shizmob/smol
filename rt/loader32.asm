@@ -51,7 +51,9 @@ _smol_start:
    push _symbols
 %endif
 
-;.loopme: jmp short .loopme
+%ifdef HANG_ON_STARTUP
+.loopme: jmp short .loopme
+%endif
 %ifdef USE_DNLOAD_LOADER
    push eax
     pop ebp

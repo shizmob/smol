@@ -137,6 +137,9 @@ def main():
         help="Write out an additional, unrunnable debug ELF file with symbol "+\
              "information. (Useful for debugging with gdb, cannot be ran due "+\
              "to broken relocations.)")
+    parser.add_argument('--hang-on-startup', default=False, action='store_true', \
+        help="Hang on startup until a debugger breaks the code out of the "+\
+             "loop. Only useful for debugging.")
 
     parser.add_argument('input', nargs='+', help="input object file")
     parser.add_argument('output', type=str, help="output binary")
@@ -168,6 +171,7 @@ def main():
     if args.falign_stack: args.asflags.insert(0, "-DALIGN_STACK")
     if args.fifunc_support: args.asflags.insert(0, "-DIFUNC_SUPPORT")
     if args.fifunc_strict_cconv: args.asflags.insert(0, "-DIFUNC_CORRECT_CCONV")
+    if args.hang_on_startup: args.asflags.insert(0, "-DHANG_ON_STARTUP")
 
     for x in ['nasm','cc','readelf']:
         val = args.__dict__[x]

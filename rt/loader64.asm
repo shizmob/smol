@@ -55,7 +55,9 @@ _smol_start:
     pop r11
     pop rdi
 
-;.loopme: jmp short .loopme ; debugging
+%ifdef HANG_ON_STARTUP
+.loopme: jmp short .loopme ; debugging
+%endif
     .next_hash:
         mov r14d, dword [rdi]
             ; assume it's nonzero
@@ -240,7 +242,9 @@ repne scasd ; technically, scasq should be used, but meh. this is 1 byte smaller
     pop r11
     pop rdi
 
-;.loopme: jmp short .loopme ; debugging
+%ifdef HANG_ON_STARTUP
+.loopme: jmp short .loopme ; debugging
+%endif
     .next_hash:
         mov r14d, dword [rdi]
             ; assume we need at least one function
