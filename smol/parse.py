@@ -169,7 +169,7 @@ def list_symbols(readelf_bin, lib):
         if vis != "DEFAULT" or ndx == "UND":
             continue
 
-        # strip away GNU versions
+        # strip away GLIBC versions
         symbol = re.sub(r"@@.*$", "", symbol)
         symbols.append(symbol)
 
@@ -182,7 +182,7 @@ def build_symbol_map(readelf_bin, libraries):
         symbols = list_symbols(readelf_bin, lib)
         for symbol in symbols:
             if symbol not in symbol_map:
-                symbol_map[symbol] = []
+                symbol_map[symbol] = set()
             soname = lib.split("/")[-1]
-            symbol_map[symbol].append(soname)
+            symbol_map[symbol].add(soname)
     return symbol_map

@@ -177,7 +177,7 @@ def main():
             libs_for_symbol = libs_symbol_map[symbol]
             if len(libs_for_symbol) > 1:
                 error("E: the symbol '" + symbol + "' is provided by more than one library: " + str(libs_for_symbol))
-            library = libs_for_symbol[0]
+            library = libs_for_symbol.pop()
             symbols.setdefault(library, [])
             symbols[library].append((symbol, reloc))
 
