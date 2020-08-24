@@ -8,6 +8,9 @@ import smol.linkmap  as linkmap
 from smol.shared import *
 from smol.parse  import *
 
+# TODO: support for hashes that aren't djb2
+
+
 def readbyte(blob, off): return struct.unpack('<B', blob[off:off+1])[0], (off+1)
 def readint(blob, off):  return struct.unpack('<I', blob[off:off+4])[0], (off+4)
 def readlong(blob, off): return struct.unpack('<Q', blob[off:off+8])[0], (off+8)
@@ -83,7 +86,7 @@ def get_hashtbl(elf, blob, args):
             assert txtoff < len(blob), "wtf??? (can't find a push IMM32 instruction which pushes the hashtable address)"
         txtoff = txtoff + 1
 
-        eprintf("Hash table offset: 0x%08x?" % txtoff)
+        #eprintf("Hash table offset: 0x%08x?" % txtoff)
         htaddr = struct.unpack('<I', blob[txtoff:txtoff+4])[0]
     else: # 64-bit
         txtoff = addr2off(elf, elf.entry)
@@ -97,8 +100,9 @@ def get_hashtbl(elf, blob, args):
         # except, this is actually the value we're looking for when the binary
         # had been linked with -fuse-dnload-loader! so let's just check the
         # value
-        htaddr = struct.unpack('<I', blob[txtoff:txtoff+4])
+        htaddr = struct.unpack('<I', blob[txtoff:txtoff+4])[0]
 
+        #eprintf("ELF entry == 0x%08x" % elf.entry)
         if htaddr == elf.entry:
             # now we can look for the interesting address
             while blob[txtoff] != 0x68:
@@ -106,16 +110,23 @@ def get_hashtbl(elf, blob, args):
                 assert txtoff < len(blob), "wtf??? (can't find a push IMM32 instruction which pushes the hashtable address)"
             txtoff = txtoff + 1
 
-        #eprintf("Hash table offset: 0x%08x?" % txtoff)
-        htaddr = struct.unpack('<I', blob[txtoff:txtoff+4])[0]
+            #eprintf("Hash table offset: 0x%08x?" % txtoff)
+            htaddr = struct.unpack('<I', blob[txtoff:txtoff+4])[0]
+        else:
+            pass#eprintf("Hash table offset: 0x%08x?" % txtoff)
 
     assert htaddr is not None, "wtf? (no hashtable address)"
     #eprintf("Hash table address: 0x%08x" % htaddr)
     htoff = addr2off(elf, htaddr)
+    #eprintf("Hash table offset: 0x%08x" % htoff)
 
     tbl = []
     while True:
+        #eprintf("sym from 0x%08x" % htoff)
         if len(blob)-htoff < 4:
+            #eprintf("htoff = 0x%08x, len=%08x" % (htoff, len(blob)))
+            if len(blob) <= htoff and len(tbl) > 0:
+                break
             if struct.unpack('<B', blob[htoff:htoff+1])[0] == 0:
                 break
         val = struct.unpack('<I', blob[htoff:htoff+4])[0]
