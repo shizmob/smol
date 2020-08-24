@@ -36,19 +36,10 @@ def find_libs(deflibs, libname):
     for d in dirs:
         for f in glob.glob(glob.escape(d + '/' + libname) + '*'): yield f
 
-def build_hashtab(scanelf_bin, lib):
-    out = subprocess.check_output([scanelf_bin, '-B', '-F', '%s', '-s', '%pd%*', lib],
-                                     stderr=subprocess.DEVNULL)
+def build_hashtab(readelf_bin, lib):
+    symbols = list_symbols(readelf_bin, lib)
 
-    blah = set(out.decode('utf-8').split('\n'))
-    ret = dict({})
-
-    for x in blah:
-        y = x.split()
-        if len(y) != 7: continue
-        ret[hash_djb2(y[6])] = y[6]
-
-    return ret
+    return { hash_djb2(symbol):symbol for symbol in symbols }
 
 def addr2off(elf, addr):
     for x in elf.phdrs:
@@ -147,8 +138,8 @@ def main():
                         default=sys.stdin.buffer, help="input file")
     parser.add_argument('--cc',
                         default=shutil.which('cc'), help="C compiler binary")
-    parser.add_argument('--scanelf',
-                        default=shutil.which('scanelf'), help="scanelf binary")
+    parser.add_argument('--readelf',
+                        default=shutil.which('readelf'), help="readelf binary")
     parser.add_argument('--map', type=argparse.FileType('r'), help=\
                         "Get the address of the symbol hash table from the "+\
                         "linker map output instead of attempting to parse the"+\
@@ -164,7 +155,7 @@ def main():
 
     htbl = get_hashtbl(elf, blob, args)
 
-    libhashes = dict((l, build_hashtab(args.scanelf, neededpaths[l])) for l in needed)
+    libhashes = dict((l, build_hashtab(args.readelf, neededpaths[l])) for l in needed)
 
     hashresolves = dict({})
     noresolves   = []

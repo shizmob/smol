@@ -85,8 +85,6 @@ def main():
         help="which nasm binary to use")
     parser.add_argument('--cc', default=os.getenv('CC') or shutil.which('cc'), \
         help="which cc binary to use (MUST BE GCC!)")
-    parser.add_argument('--scanelf', default=os.getenv('SCANELF') or shutil.which('scanelf'), \
-        help="which scanelf binary to use")
     parser.add_argument('--readelf', default=os.getenv('READELF') or shutil.which('readelf'), \
         help="which readelf binary to use")
 
@@ -134,7 +132,7 @@ def main():
     if args.fifunc_support: args.asflags.insert(0, "-DIFUNC_SUPPORT")
     if args.fifunc_strict_cconv: args.asflags.insert(0, "-DIFUNC_CORRECT_CCONV")
 
-    for x in ['nasm','cc','scanelf','readelf']:
+    for x in ['nasm','cc','readelf']:
         val = args.__dict__[x]
         if val is None or not os.path.isfile(val):
             error("'%s' binary%s not found" %
@@ -169,13 +167,17 @@ def main():
         syms = get_needed_syms(args.readelf, objinput)
         spaths = args.libdir + cc_paths['libraries']
         libraries = cc_paths['libraries']
-        libs = list(find_libs(spaths, args.library))
+        libs = find_libs(spaths, args.library)
         if args.verbose: eprintf("libs = %s" % str(libs))
+        libs_symbol_map = build_symbol_map(args.readelf, libs)
         symbols = {}
         for symbol, reloc in syms:
-            library = find_symbol(args.scanelf, libs, args.library, symbol)
-            if not library:
+            if symbol not in libs_symbol_map:
                 error("could not find symbol: {}".format(symbol))
+            libs_for_symbol = libs_symbol_map[symbol]
+            if len(libs_for_symbol) > 1:
+                error("E: the symbol '" + symbol + "' is provided by more than one library: " + str(libs_for_symbol))
+            library = libs_for_symbol[0]
             symbols.setdefault(library, [])
             symbols[library].append((symbol, reloc))
 

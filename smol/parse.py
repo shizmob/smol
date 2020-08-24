@@ -4,6 +4,7 @@ import os.path
 import subprocess
 import struct
 import sys
+import re
 
 from .shared import *
 
@@ -150,14 +151,38 @@ def find_lib(spaths, wanted):
 
     error("E: couldn't find library '" + wanted + "'.")
 
-def find_libs(spaths, wanted): return map(lambda l: find_lib(spaths, l), wanted)
+def find_libs(spaths, wanted):
+    return [find_lib(spaths, l) for l in wanted]
 
-def find_symbol(scanelf_bin, libraries, libnames, symbol):
-    output = subprocess.check_output([scanelf_bin, '-B', '-F' '%s %S', '-s', \
-                '+{}'.format(symbol)] + libraries, stderr=subprocess.DEVNULL)
-    for entry in output.decode('utf-8').splitlines():
-        sym, soname, path = entry.split(' ', 2)
-        if symbol in sym.split(',') and \
-                any(soname.startswith('lib'+l) for l in libnames):
-            return soname
+def list_symbols(readelf_bin, lib):
+    out = subprocess.check_output([readelf_bin, '-sW', lib], stderr=subprocess.DEVNULL)
 
+    lines = set(out.decode('utf-8').split('\n'))
+    symbols = []
+
+    for line in lines:
+        fields = re.split(r"\s+", line)
+        if len(fields) != 9:
+            continue
+
+        vis, ndx, symbol = fields[6:9]
+        if vis != "DEFAULT" or ndx == "UND":
+            continue
+
+        # strip away GNU versions
+        symbol = re.sub(r"@@.*$", "", symbol)
+        symbols.append(symbol)
+
+    return symbols
+
+def build_symbol_map(readelf_bin, libraries):
+    # create dictionary that maps symbols to libraries that provide them
+    symbol_map = {}
+    for lib in libraries:
+        symbols = list_symbols(readelf_bin, lib)
+        for symbol in symbols:
+            if symbol not in symbol_map:
+                symbol_map[symbol] = []
+            soname = lib.split("/")[-1]
+            symbol_map[symbol].append(soname)
+    return symbol_map

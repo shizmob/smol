@@ -9,7 +9,6 @@ PoC by Shiz, bugfixing and 64-bit version by PoroCYon.
 * GCC (not clang, as the latter doesn't support `nolto-rel` output), GNU ld,
   binutils, GNU make, ...
 * nasm 2.13 or newer
-* `scanelf` from `pax-utils`
 * Python 3
 
 ## Usage
@@ -25,7 +24,7 @@ the smol startup/symbol resolving code will jump to an undefined location.
 ```
 usage: smold.py [-h] [-m TARGET] [-l LIB] [-L DIR] [-s] [-n] [-d] [-fuse-interp] [-falign-stack] [-fuse-nx]
                 [-fuse-dnload-loader] [-fskip-zero-value] [-fuse-dt-debug] [-fuse-dl-fini] [-fskip-entries]
-                [-fno-start-arg] [-funsafe-dynamic] [--nasm NASM] [--cc CC] [--scanelf SCANELF] [--readelf READELF]
+                [-fno-start-arg] [-funsafe-dynamic] [--nasm NASM] [--cc CC] [--readelf READELF]
                 [--cflags CFLAGS] [--asflags ASFLAGS] [--ldflags LDFLAGS] [--smolrt SMOLRT] [--smolld SMOLLD]
                 [--verbose] [--keeptmp]
                 input [input ...] output
@@ -71,7 +70,6 @@ optional arguments:
                         entire binary as the Dyn table, so only enable this if you're sure this won't break things!
   --nasm NASM           which nasm binary to use
   --cc CC               which cc binary to use (MUST BE GCC!)
-  --scanelf SCANELF     which scanelf binary to use
   --readelf READELF     which readelf binary to use
   --cflags CFLAGS       Flags to pass to the C compiler for the relinking step
   --asflags ASFLAGS     Flags to pass to the assembler when creating the ELF header and runtime startup code
