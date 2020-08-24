@@ -37,6 +37,9 @@ def main():
     parser.add_argument('-d', '--det', default=False, action='store_true', \
         help="Make the order of imports deterministic (default: just use " + \
              "whatever binutils throws at us)")
+    parser.add_argument('-g', '--debug', default=False, action='store_true', \
+        help="Pass `-g' to the C compiler, assembler and linker. Only useful "+\
+             "when `--debugout' is specified.")
 
     parser.add_argument('-fuse-interp', default=True, action='store_true', \
         help="[Default ON] Include a program interpreter header (PT_INTERP). If not " +\
@@ -142,6 +145,11 @@ def main():
 
     if args.hash16 and args.crc32c: # shouldn't happen anymore
         error("Cannot combine --hash16 and --crc32c!")
+
+    if args.debug:
+        args.cflags.append('-g')
+        args.ldflags.append('-g')
+        args.asflags.append('-g')
 
     if args.hash16 or args.crc32c:
         args.fuse_dnload_loader = True

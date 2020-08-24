@@ -21,8 +21,8 @@ CXXOPTFLAGS=$(COPTFLAGS) -fno-exceptions \
   -fno-rtti -fno-enforce-eh-specs -fnothrow-opt -fno-use-cxa-get-exception-ptr \
   -fno-implicit-templates -fno-threadsafe-statics -fno-use-cxa-atexit
 
-CFLAGS=-Wall -Wextra -Wpedantic -std=gnu11 -nostartfiles -fno-PIC $(COPTFLAGS) #-DUSE_DL_FINI
-CXXFLAGS=-Wall -Wextra -Wpedantic -std=c++11 $(CXXOPTFLAGS) -nostartfiles -fno-PIC
+CFLAGS=-g -Wall -Wextra -Wpedantic -std=gnu11 -nostartfiles -fno-PIC $(COPTFLAGS) #-DUSE_DL_FINI
+CXXFLAGS=-g -Wall -Wextra -Wpedantic -std=c++11 $(CXXOPTFLAGS) -nostartfiles -fno-PIC
 
 CFLAGS   += -m$(BITS) $(shell pkg-config --cflags sdl2)
 CXXFLAGS += -m$(BITS) $(shell pkg-config --cflags sdl2)
@@ -41,7 +41,7 @@ LIBS = $(filter-out -pthread,$(shell pkg-config --libs sdl2)) -lX11 -lm -lc #-lG
 PWD ?= .
 
 SMOLFLAGS = --smolrt "$(PWD)/rt" --smolld "$(PWD)/ld" \
-    --verbose #--keeptmp
+    --verbose -g #--keeptmp
 # -fuse-dnload-loader -fskip-zero-value -fuse-nx -fskip-entries -fuse-dt-debug
 # -fuse-dl-fini -fno-start-arg -funsafe-dynamic
 
