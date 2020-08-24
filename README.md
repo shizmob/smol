@@ -18,15 +18,13 @@ PoC by Shiz, bugfixing and 64-bit version by PoroCYon.
 the smol startup/symbol resolving code will jump to an undefined location.
 
 ```sh
-./smold.py --use_interp --align_stack [--opts...] -lfoo -lbar input.o... output.elf
+./smold.py -fuse-interp -falign-stack [--opts...] -lfoo -lbar input.o... output.elf
 ```
 
 ```
-usage: smold.py [-h] [-m TARGET] [-l LIB] [-L DIR] [-s] [-n] [-d] [-fuse-interp] [-falign-stack] [-fuse-nx]
-                [-fuse-dnload-loader] [-fskip-zero-value] [-fuse-dt-debug] [-fuse-dl-fini] [-fskip-entries]
-                [-fno-start-arg] [-funsafe-dynamic] [--nasm NASM] [--cc CC] [--readelf READELF]
-                [--cflags CFLAGS] [--asflags ASFLAGS] [--ldflags LDFLAGS] [--smolrt SMOLRT] [--smolld SMOLLD]
-                [--verbose] [--keeptmp]
+usage: smold.py [-h] [-m TARGET] [-l LIB] [-L DIR] [-s] [-n] [-d] [-fuse-interp] [-falign-stack] [-fuse-nx] [-fuse-dnload-loader] [-fskip-zero-value] [-fuse-dt-debug] [-fuse-dl-fini] [-fskip-entries] [-fno-start-arg] [-funsafe-dynamic]
+                [-fifunc-support] [-fifunc-strict-cconv] [--nasm NASM] [--cc CC] [--readelf READELF] [-Wc CFLAGS] [-Wa ASFLAGS] [-Wl LDFLAGS] [--smolrt SMOLRT] [--smolld SMOLLD] [--gen-rt-only] [--verbose] [--keeptmp]
+                [--debugout DEBUGOUT]
                 input [input ...] output
 
 positional arguments:
@@ -41,43 +39,39 @@ optional arguments:
                         libraries to link against
   -L DIR, --libdir DIR  directories to search libraries in
   -s, --hash16          Use 16-bit (BSD) hashes instead of 32-bit djb2 hashes. Implies -fuse-dnload-loader
-  -n, --nx              Use NX (i.e. don't use RWE pages). Costs the size of one phdr, plus some extra bytes on
-                        i386.
+  -n, --nx              Use NX (i.e. don't use RWE pages). Costs the size of one phdr, plus some extra bytes on i386.
   -d, --det             Make the order of imports deterministic (default: just use whatever binutils throws at us)
-  -fuse-interp          Include a program interpreter header (PT_INTERP). If not enabled, ld.so has to be invoked
-                        manually by the end user.
-  -falign-stack         Align the stack before running user code (_start). If not enabled, this has to be done
-                        manually. Costs 1 byte.
-  -fuse-nx              Don't use one big RWE segment, but use separate RW and RE ones. Use this to keep strict
-                        kernels (PaX/grsec) happy. Costs at least the size of one program header entry.
-  -fuse-dnload-loader   Use a dnload-style loader for resolving symbols, which doesn't depend on
-                        nonstandard/undocumented ELF and ld.so features, but is slightly larger. If not enabled, a
-                        smaller custom loader is used which assumes glibc.
-  -fskip-zero-value     Skip an ELF symbol with a zero address (a weak symbol) when parsing libraries at runtime.
-                        Try enabling this if you're experiencing sudden breakage. However, many libraries don't use
-                        weak symbols, so this doesn't often pose a problem. Costs ~5 bytes.
-  -fuse-dt-debug        Use the DT_DEBUG Dyn header to access the link_map, which doesn't depend on
-                        nonstandard/undocumented ELF and ld.so features. If not enabled, the link_map is accessed
-                        using data leaked to the entrypoint by ld.so, which assumes glibc. Costs ~10 bytes.
-  -fuse-dl-fini         Pass _dl_fini to the user entrypoint, which should be done to properly comply with all
-                        standards, but is very often not needed at all. Costs 2 bytes.
-  -fskip-entries        Skip the first two entries in the link map (resp. ld.so and the vDSO). Speeds up symbol
-                        resolving, but costs ~5 bytes.
-  -fno-start-arg        Don't pass a pointer to argc/argv/envp to the entrypoint using the standard calling
-                        convention. This means you need to read these yourself in assembly if you want to use them!
-                        (envp is a preprequisite for X11, because it needs $DISPLAY.) Frees 3 bytes.
-  -funsafe-dynamic      Don't end the ELF Dyn table with a DT_NULL entry. This might cause ld.so to interpret the
-                        entire binary as the Dyn table, so only enable this if you're sure this won't break things!
+  -fuse-interp          Include a program interpreter header (PT_INTERP). If not enabled, ld.so has to be invoked manually by the end user.
+  -falign-stack         Align the stack before running user code (_start). If not enabled, this has to be done manually. Costs 1 byte.
+  -fuse-nx              Don't use one big RWE segment, but use separate RW and RE ones. Use this to keep strict kernels (PaX/grsec) happy. Costs at least the size of one program header entry.
+  -fuse-dnload-loader   Use a dnload-style loader for resolving symbols, which doesn't depend on nonstandard/undocumented ELF and ld.so features, but is slightly larger. If not enabled, a smaller custom loader is used which assumes
+                        glibc.
+  -fskip-zero-value     Skip an ELF symbol with a zero address (a weak symbol) when parsing libraries at runtime. Try enabling this if you're experiencing sudden breakage. However, many libraries don't use weak symbols, so this doesn't
+                        often pose a problem. Costs ~5 bytes.
+  -fuse-dt-debug        Use the DT_DEBUG Dyn header to access the link_map, which doesn't depend on nonstandard/undocumented ELF and ld.so features. If not enabled, the link_map is accessed using data leaked to the entrypoint by ld.so,
+                        which assumes glibc. Costs ~10 bytes.
+  -fuse-dl-fini         Pass _dl_fini to the user entrypoint, which should be done to properly comply with all standards, but is very often not needed at all. Costs 2 bytes.
+  -fskip-entries        Skip the first two entries in the link map (resp. ld.so and the vDSO). Speeds up symbol resolving, but costs ~5 bytes.
+  -fno-start-arg        Don't pass a pointer to argc/argv/envp to the entrypoint using the standard calling convention. This means you need to read these yourself in assembly if you want to use them! (envp is a preprequisite for X11,
+                        because it needs $DISPLAY.) Frees 3 bytes.
+  -funsafe-dynamic      Don't end the ELF Dyn table with a DT_NULL entry. This might cause ld.so to interpret the entire binary as the Dyn table, so only enable this if you're sure this won't break things!
+  -fifunc-support       Support linking to IFUNCs. Probably needed on x86_64, but costs ~16 bytes. Ignored on platforms without IFUNC support.
+  -fifunc-strict-cconv  On i386, if -fifunc-support is specified, strictly follow the calling convention rules. Probably not needed, but you never know.
   --nasm NASM           which nasm binary to use
   --cc CC               which cc binary to use (MUST BE GCC!)
   --readelf READELF     which readelf binary to use
-  --cflags CFLAGS       Flags to pass to the C compiler for the relinking step
-  --asflags ASFLAGS     Flags to pass to the assembler when creating the ELF header and runtime startup code
-  --ldflags LDFLAGS     Flags to pass to the linker for the final linking step
+  -Wc CFLAGS, --cflags CFLAGS
+                        Flags to pass to the C compiler for the relinking step
+  -Wa ASFLAGS, --asflags ASFLAGS
+                        Flags to pass to the assembler when creating the ELF header and runtime startup code
+  -Wl LDFLAGS, --ldflags LDFLAGS
+                        Flags to pass to the linker for the final linking step
   --smolrt SMOLRT       Directory containing the smol runtime sources
   --smolld SMOLLD       Directory containing the smol linker scripts
+  --gen-rt-only         Only generate the headers/runtime assembly source file, instead of doing a full link. (I.e. fall back to pre-release behavior.)
   --verbose             Be verbose about what happens and which subcommands are invoked
   --keeptmp             Keep temp files (only useful for debugging)
+  --debugout DEBUGOUT   Write out an additional, unrunnable debug ELF file with symbol information. (Useful for debugging with gdb, cannot be ran due to broken relocations.)
 ```
 
 A minimal crt (and `_start` funcion) are provided in case you want to use `main`.
@@ -88,6 +82,19 @@ A minimal crt (and `_start` funcion) are provided in case you want to use `main`
 imported by a `smol`-ified binary. This can thus be used to detect user mistakes
 during dynamic linking. (Think of it as an equivalent of `ldd`, except that it
 also checks whether the imported functions are present as well.)
+
+```
+usage: smoldd.py [-h] [--cc CC] [--readelf READELF] [--map MAP] input
+
+positional arguments:
+  input              input file
+
+optional arguments:
+  -h, --help         show this help message and exit
+  --cc CC            C compiler binary
+  --readelf READELF  readelf binary
+  --map MAP          Get the address of the symbol hash table from the linker map output instead of attempting to parse the binary.
+```
 
 ## Internal workings
 
