@@ -83,6 +83,7 @@ def get_hashtbl(elf, blob, args):
             assert txtoff < len(blob), "wtf??? (can't find a push IMM32 instruction which pushes the hashtable address)"
         txtoff = txtoff + 1
 
+        eprintf("Hash table offset: 0x%08x?" % txtoff)
         htaddr = struct.unpack('<I', blob[txtoff:txtoff+4])[0]
     else: # 64-bit
         txtoff = addr2off(elf, elf.entry)
@@ -90,18 +91,26 @@ def get_hashtbl(elf, blob, args):
         # but the first one we'll encounter pushes the entrypoint addr!
         while blob[txtoff] != 0x68:
             txtoff = txtoff + 1
-            assert txtoff < len(blob), "wtf??? (can't find a push IMM32 instruction which pushes the entrypoint address)"
-        txtoff = txtoff + 1
-        # now we can look for the interesting address
-        while blob[txtoff] != 0x68:
-            txtoff = txtoff + 1
-            assert txtoff < len(blob), "wtf??? (can't find a push IMM32 instruction which pushes the hashtable address)"
+            assert txtoff < len(blob), "wtf??? (can't find a push IMM32 instruction which pushes the hashtable or entrypoint address)"
         txtoff = txtoff + 1
 
+        # except, this is actually the value we're looking for when the binary
+        # had been linked with -fuse-dnload-loader! so let's just check the
+        # value
+        htaddr = struct.unpack('<I', blob[txtoff:txtoff+4])
+
+        if htaddr == elf.entry:
+            # now we can look for the interesting address
+            while blob[txtoff] != 0x68:
+                txtoff = txtoff + 1
+                assert txtoff < len(blob), "wtf??? (can't find a push IMM32 instruction which pushes the hashtable address)"
+            txtoff = txtoff + 1
+
+        #eprintf("Hash table offset: 0x%08x?" % txtoff)
         htaddr = struct.unpack('<I', blob[txtoff:txtoff+4])[0]
 
     assert htaddr is not None, "wtf? (no hashtable address)"
-    #print("Hash table address: 0x%08x" % htaddr)
+    #eprintf("Hash table address: 0x%08x" % htaddr)
     htoff = addr2off(elf, htaddr)
 
     tbl = []
