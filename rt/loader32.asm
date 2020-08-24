@@ -168,7 +168,16 @@ _smol_start:
             cmp al, STT_GNU_IFUNC
             jne short .no_ifunc
           ;int3
+%ifdef IFUNC_CORRECT_CCONV
+                ; call destroys stuff, but we only need to preserve edi
+                ; for our purposes anyway. we do need one push to align the
+                ; stack to 16 bytes
+           push edi
            call ecx
+            pop edi
+%else
+           call ecx
+%endif
              db 0x3c ; cmp al, <next byte == xchg ecx,eax> --> jump over next insn
         .no_ifunc:
            xchg ecx, eax
@@ -273,7 +282,16 @@ repne scasd
                 cmp al, STT_GNU_IFUNC
                 jne short .no_ifunc
               ;int3
+%ifdef IFUNC_CORRECT_CCONV
+                    ; call destroys stuff, but we only need to preserve edi
+                    ; for our purposes anyway. we do need one push to align the
+                    ; stack to 16 bytes
+               push edi
                call ecx
+                pop edi
+%else
+               call ecx
+%endif
                  db 0x3c ; cmp al, <next byte == xchg ecx,eax> --> jump over next insn
             .no_ifunc:
                xchg ecx, eax

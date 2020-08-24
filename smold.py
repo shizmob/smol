@@ -76,7 +76,10 @@ def main():
              "so only enable this if you're sure this won't break things!")
     parser.add_argument('-fifunc-support', default=False, action='store_true', \
         help="Support linking to IFUNCs. Probably needed on x86_64, but costs "+\
-             "~16 bytes. Ignored on platforms other than x86_64 or aarch64.")
+             "~16 bytes. Ignored on platforms without IFUNC support.")
+    parser.add_argument('-fifunc-strict-cconv', default=False, action='store_true', \
+        help="On i386, if -fifunc-support is specified, strictly follow the "+\
+             "calling convention rules. Probably not needed, but you never know.")
 
     parser.add_argument('--nasm', default=os.getenv('NASM') or shutil.which('nasm'), \
         help="which nasm binary to use")
@@ -126,6 +129,7 @@ def main():
     if args.fuse_interp: args.asflags.insert(0, "-DUSE_INTERP")
     if args.falign_stack: args.asflags.insert(0, "-DALIGN_STACK")
     if args.fifunc_support: args.asflags.insert(0, "-DIFUNC_SUPPORT")
+    if args.fifunc_strict_cconv: args.asflags.insert(0, "-DIFUNC_CORRECT_CCONV")
 
     for x in ['nasm','cc','scanelf','readelf']:
         val = args.__dict__[x]
