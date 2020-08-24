@@ -279,19 +279,20 @@ def build_symbol_map(readelf_bin, libraries) -> Dict[str, Dict[str, ExportSym]]:
 # this ordening is specific to ONE symbol!
 def build_preferred_lib_order(sym, libs: Dict[str, ExportSym]) -> List[Tuple[str, ExportSym]]:
     # libs: lib -> syminfo
-    realdefs    = [(k, v) for k, v in libs.items() if v.scope != "WEAK"]
+    realdefs    = [(k, v) for k, v in libs.items() if v.scope != "WEAK" and v.ndx != "UND"]
     weakdefs    = [(k, v) for k, v in libs.items() if v.scope == "WEAK" and v.ndx != "UND"]
     weakunddefs = [(k, v) for k, v in libs.items() if v.scope == "WEAK" and v.ndx == "UND"]
+    unddefs     = [(k, v) for k, v in libs.items() if v.scope != "WEAK" and v.ndx == "UND"]
 
     #assert len(realdefs) + len(weakdefs) + len(weakunddefs) == len(libs)
 
     if len(realdefs) > 1 or (len(realdefs) == 0 and len(weakdefs) > 1):
         error("E: symbol '%s' defined non-weakly in multiple libraries! (%s)"
               % (sym, ', '.join(libs.keys())))
-    if len(realdefs) == 0 and len(weakdefs) == 0: # must be in weakunddefs
+    if len(realdefs) == 0 and len(weakdefs) == 0: # must be in weakunddefs or unddefs
         error("E: no default weak implementation found for symbol '%s'" % sym)
 
-    return realdefs + weakdefs + weakunddefs
+    return realdefs + weakdefs + weakunddefs #+ unddefs
 
 def has_good_subordening(needles, haystack):
     haylist = [x[0] for x in haystack]
