@@ -36,12 +36,12 @@ def main():
         help="Make the order of imports deterministic (default: just use " + \
              "whatever binutils throws at us)")
 
-    parser.add_argument('-fuse-interp', default=False, action='store_true', \
-        help="Include a program interpreter header (PT_INTERP). If not " +\
+    parser.add_argument('-fno-use-interp', default=False, action='store_true', \
+        help="Don't include a program interpreter header (PT_INTERP). If not " +\
              "enabled, ld.so has to be invoked manually by the end user.")
-    parser.add_argument('-falign-stack', default=False, action='store_true', \
-        help="Align the stack before running user code (_start). If not " + \
-             "enabled, this has to be done manually. Costs 1 byte.")
+    parser.add_argument('-fno-align-stack', default=False, action='store_true', \
+        help="Don't align the stack before running user code (_start). If not " + \
+             "enabled, this has to be done manually. Frees 1 byte.")
     parser.add_argument('-fuse-nx', default=False, action='store_true', \
         help="Don't use one big RWE segment, but use separate RW and RE ones."+\
              " Use this to keep strict kernels (PaX/grsec) happy. Costs at "+\
@@ -51,11 +51,11 @@ def main():
              "depend on nonstandard/undocumented ELF and ld.so features, but "+\
              "is slightly larger. If not enabled, a smaller custom loader is "+\
              "used which assumes glibc.")
-    parser.add_argument('-fskip-zero-value', default=False, action='store_true', \
-        help="Skip an ELF symbol with a zero address (a weak symbol) when "+\
+    parser.add_argument('-fno-skip-zero-value', default=False, action='store_true', \
+        help="Don't skip an ELF symbol with a zero address (a weak symbol) when "+\
              "parsing libraries at runtime. Try enabling this if you're "+\
              "experiencing sudden breakage. However, many libraries don't use "+\
-             "weak symbols, so this doesn't often pose a problem. Costs ~5 bytes.")
+             "weak symbols, so this doesn't often pose a problem. Frees ~5 bytes.")
     parser.add_argument('-fuse-dt-debug', default=False, action='store_true', \
         help="Use the DT_DEBUG Dyn header to access the link_map, which doesn't"+\
              " depend on nonstandard/undocumented ELF and ld.so features. If "+\
@@ -77,7 +77,7 @@ def main():
         help="Don't end the ELF Dyn table with a DT_NULL entry. This might "+\
              "cause ld.so to interpret the entire binary as the Dyn table, "+\
              "so only enable this if you're sure this won't break things!")
-    parser.add_argument('-fifunc-support', default=False, action='store_true', \
+    parser.add_argument('-fno-ifunc-support', default=True, action='store_true', \
         help="Support linking to IFUNCs. Probably needed on x86_64, but costs "+\
              "~16 bytes. Ignored on platforms without IFUNC support.")
     parser.add_argument('-fifunc-strict-cconv', default=False, action='store_true', \
@@ -125,7 +125,7 @@ def main():
     if args.hash16 or args.crc32c:
         args.fuse_dnload_loader = True
 
-    if args.fskip_zero_value: args.asflags.insert(0, "-DSKIP_ZERO_VALUE")
+    if not args.fno_skip_zero_value: args.asflags.insert(0, "-DSKIP_ZERO_VALUE")
     if args.fuse_nx: args.asflags.insert(0, "-DUSE_NX")
     if args.fskip_entries: args.asflags.insert(0, "-DSKIP_ENTRIES")
     if args.funsafe_dynamic: args.asflags.insert(0, "-DUNSAFE_DYNAMIC")
@@ -133,9 +133,9 @@ def main():
     if args.fuse_dl_fini: args.asflags.insert(0, "-DUSE_DL_FINI")
     if args.fuse_dt_debug: args.asflags.insert(0, "-DUSE_DT_DEBUG")
     if args.fuse_dnload_loader: args.asflags.insert(0, "-DUSE_DNLOAD_LOADER")
-    if args.fuse_interp: args.asflags.insert(0, "-DUSE_INTERP")
-    if args.falign_stack: args.asflags.insert(0, "-DALIGN_STACK")
-    if args.fifunc_support: args.asflags.insert(0, "-DIFUNC_SUPPORT")
+    if not args.fno_use_interp: args.asflags.insert(0, "-DUSE_INTERP")
+    if not args.fno_align_stack: args.asflags.insert(0, "-DALIGN_STACK")
+    if not args.fno_ifunc_support: args.asflags.insert(0, "-DIFUNC_SUPPORT")
     if args.fifunc_strict_cconv: args.asflags.insert(0, "-DIFUNC_CORRECT_CCONV")
 
     for x in ['nasm','cc','readelf']:
