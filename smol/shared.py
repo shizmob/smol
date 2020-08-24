@@ -14,7 +14,7 @@ HASH_BSD2 = 1
 HASH_CRC32C=2
 
 define_for_hash = {
-    HASH_DJB2: None
+    HASH_DJB2: None,
     HASH_BSD2: 'USE_HASH16',
     HASH_CRC32C: 'USE_CRC32C_HASH'
 }
@@ -35,9 +35,16 @@ def hash_djb2(s):
 
 
 def hash_crc32c(s):
-    # crc32 implementation is basically:
-    # sum = -1; for (; *s; ++s) crc32_instr(&sum, *s); return sum
-    assert False, "not implemented!" # TODO
+    crc = 0x0
+    for c in s:
+        k = (crc & 0xff) ^ ord(c)
+        for i in range(8):
+            j = k & 1
+            if j == 1:
+                k ^= 0x105EC76F0
+            k >>= 1
+        crc = ((crc >> 8) ^ k) & 0xFFFFFFFF
+    return crc
 
 
 def eprintf(*args, **kwargs):

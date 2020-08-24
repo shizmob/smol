@@ -107,8 +107,7 @@ _smol_start:
 
                 ; source in eax, result in eax
 %ifdef USE_CRC32C_HASH
-           push -1
-            pop eax
+           xor ecx, ecx
 %else
     %ifndef USE_HASH16
            push ebx

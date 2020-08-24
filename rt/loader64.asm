@@ -112,8 +112,7 @@ _smol_start:
             pop rbx
 %else
                 ; crc32
-           push -1
-            pop rcx
+           xor ecx, ecx
 %endif
         .nexthashiter:
 %ifndef USE_CRC32C_HASH
