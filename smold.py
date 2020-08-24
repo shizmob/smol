@@ -23,12 +23,14 @@ def main():
     parser.add_argument('-L', '--libdir', default=[], metavar='DIR', action='append', \
         help="directories to search libraries in")
 
-    parser.add_argument('-s', '--hash16', default=False, action='store_true', \
+    hashgrp = parser.add_mutually_exclusive_group()
+    hashgrp.add_argument('-s', '--hash16', default=False, action='store_true', \
         help="Use 16-bit (BSD2) hashes instead of 32-bit djb2 hashes. "+\
              "Implies -fuse-dnload-loader. Only usable for 32-bit output.")
-    parser.add_argument('-c', '--crc32c', default=False, action='store_true', \
+    hashgrp.add_argument('-c', '--crc32c', default=False, action='store_true', \
         help="Use Intel's crc32 intrinsic for hashing. "+\
              "Implies -fuse-dnload-loader. Conflicts with `--hash16'.")
+
     parser.add_argument('-n', '--nx', default=False, action='store_true', \
         help="Use NX (i.e. don't use RWE pages). Costs the size of one phdr, "+\
              "plus some extra bytes on i386.")
@@ -36,26 +38,48 @@ def main():
         help="Make the order of imports deterministic (default: just use " + \
              "whatever binutils throws at us)")
 
-    parser.add_argument('-fno-use-interp', default=False, action='store_true', \
-        help="Don't include a program interpreter header (PT_INTERP). If not " +\
-             "enabled, ld.so has to be invoked manually by the end user.")
-    parser.add_argument('-fno-align-stack', default=False, action='store_true', \
-        help="Don't align the stack before running user code (_start). If not " + \
-             "enabled, this has to be done manually. Frees 1 byte.")
-    parser.add_argument('-fuse-nx', default=False, action='store_true', \
-        help="Don't use one big RWE segment, but use separate RW and RE ones."+\
-             " Use this to keep strict kernels (PaX/grsec) happy. Costs at "+\
-             "least the size of one program header entry.")
+    parser.add_argument('-fuse-interp', default=True, action='store_true', \
+        help="[Default ON] Include a program interpreter header (PT_INTERP). If not " +\
+             "enabled, ld.so has to be invoked manually by the end user. "+\
+             "Disable with `-fno-use-interp'.",
+        dest="fuse_interp")
+    parser.add_argument('-fno-use-interp', action='store_false', \
+        dest="fuse_interp", help=argparse.SUPPRESS)
+
+    parser.add_argument('-falign-stack', default=True, action='store_true', \
+        help="[Default ON] Align the stack before running user code (_start). If not " + \
+             "enabled, this has to be done manually. Costs 1 byte. Disable "+\
+             "with `-fno-align-stack'.", dest="falign_stack")
+    parser.add_argument('-fno-align-stack', action='store_false', \
+        dest="falign_stack", help=argparse.SUPPRESS)
+
+    parser.add_argument('-fskip-zero-value', default=None, action='store_true', \
+        help="[Default: ON if `-fuse-dnload-loader' supplied, OFF otherwise] "+\
+             "Skip an ELF symbol with a zero address (a weak symbol) when "+\
+             "parsing libraries at runtime. Try enabling this if you're "+\
+             "experiencing sudden breakage. However, many libraries don't use "+\
+             "weak symbols, so this doesn't often pose a problem. Costs ~5 bytes."+\
+             "Disable with `-fno-skip-zero-value'.", dest="fskip_zero_value")
+    parser.add_argument('-fno-skip-zero-value', default=None, action='store_false', \
+        dest="fskip_zero_value", help=argparse.SUPPRESS)
+
+    parser.add_argument('-fifunc-support', default=True, action='store_true', \
+        help="[Default ON] Support linking to IFUNCs. Probably needed on x86_64, but costs "+\
+             "~16 bytes. Ignored on platforms without IFUNC support. Disable "+\
+             "with `-fno-fifunc-support'.", dest="fifunc_support")
+    parser.add_argument('-fno-ifunc-support', action='store_false', \
+        dest="fifunc_support", help=argparse.SUPPRESS)
+
     parser.add_argument('-fuse-dnload-loader', default=False, action='store_true', \
         help="Use a dnload-style loader for resolving symbols, which doesn't "+\
              "depend on nonstandard/undocumented ELF and ld.so features, but "+\
              "is slightly larger. If not enabled, a smaller custom loader is "+\
-             "used which assumes glibc.")
-    parser.add_argument('-fno-skip-zero-value', default=False, action='store_true', \
-        help="Don't skip an ELF symbol with a zero address (a weak symbol) when "+\
-             "parsing libraries at runtime. Try enabling this if you're "+\
-             "experiencing sudden breakage. However, many libraries don't use "+\
-             "weak symbols, so this doesn't often pose a problem. Frees ~5 bytes.")
+             "used which assumes glibc. `-fskip-zero-value' defaults to ON if "+\
+             "this flag is supplied.")
+    parser.add_argument('-fuse-nx', default=False, action='store_true', \
+        help="Don't use one big RWE segment, but use separate RW and RE ones."+\
+             " Use this to keep strict kernels (PaX/grsec) happy. Costs at "+\
+             "least the size of one program header entry.")
     parser.add_argument('-fuse-dt-debug', default=False, action='store_true', \
         help="Use the DT_DEBUG Dyn header to access the link_map, which doesn't"+\
              " depend on nonstandard/undocumented ELF and ld.so features. If "+\
@@ -77,9 +101,6 @@ def main():
         help="Don't end the ELF Dyn table with a DT_NULL entry. This might "+\
              "cause ld.so to interpret the entire binary as the Dyn table, "+\
              "so only enable this if you're sure this won't break things!")
-    parser.add_argument('-fno-ifunc-support', default=True, action='store_true', \
-        help="Support linking to IFUNCs. Probably needed on x86_64, but costs "+\
-             "~16 bytes. Ignored on platforms without IFUNC support.")
     parser.add_argument('-fifunc-strict-cconv', default=False, action='store_true', \
         help="On i386, if -fifunc-support is specified, strictly follow the "+\
              "calling convention rules. Probably not needed, but you never know.")
@@ -119,13 +140,15 @@ def main():
 
     args = parser.parse_args()
 
-    if args.hash16 and args.crc32c:
+    if args.hash16 and args.crc32c: # shouldn't happen anymore
         error("Cannot combine --hash16 and --crc32c!")
 
     if args.hash16 or args.crc32c:
         args.fuse_dnload_loader = True
 
-    if not args.fno_skip_zero_value: args.asflags.insert(0, "-DSKIP_ZERO_VALUE")
+    args.fskip_zero_value = args.fskip_zero_value or args.fuse_dnload_loader
+
+    if args.fskip_zero_value: args.asflags.insert(0, "-DSKIP_ZERO_VALUE")
     if args.fuse_nx: args.asflags.insert(0, "-DUSE_NX")
     if args.fskip_entries: args.asflags.insert(0, "-DSKIP_ENTRIES")
     if args.funsafe_dynamic: args.asflags.insert(0, "-DUNSAFE_DYNAMIC")
@@ -133,9 +156,9 @@ def main():
     if args.fuse_dl_fini: args.asflags.insert(0, "-DUSE_DL_FINI")
     if args.fuse_dt_debug: args.asflags.insert(0, "-DUSE_DT_DEBUG")
     if args.fuse_dnload_loader: args.asflags.insert(0, "-DUSE_DNLOAD_LOADER")
-    if not args.fno_use_interp: args.asflags.insert(0, "-DUSE_INTERP")
-    if not args.fno_align_stack: args.asflags.insert(0, "-DALIGN_STACK")
-    if not args.fno_ifunc_support: args.asflags.insert(0, "-DIFUNC_SUPPORT")
+    if args.fuse_interp: args.asflags.insert(0, "-DUSE_INTERP")
+    if args.falign_stack: args.asflags.insert(0, "-DALIGN_STACK")
+    if args.fifunc_support: args.asflags.insert(0, "-DIFUNC_SUPPORT")
     if args.fifunc_strict_cconv: args.asflags.insert(0, "-DIFUNC_CORRECT_CCONV")
 
     for x in ['nasm','cc','readelf']:
@@ -154,14 +177,15 @@ def main():
 
     objinput = None
     objinputistemp = False
-    tmp_asm_file = args.output
+    tmp_asm_file, tmp_elf_fd, tmp_elf_file = None, None, None
     if not args.gen_rt_only:
         tmp_asm_file = tempfile.mkstemp(prefix='smoltab',suffix='.asm',text=True)
         tmp_asm_fd = tmp_asm_file[0]
         tmp_asm_file = tmp_asm_file[1]
-    tmp_elf_file = tempfile.mkstemp(prefix='smolout',suffix='.o')
-    os.close(tmp_elf_file[0])
-    tmp_elf_file = tmp_elf_file[1]
+        tmp_elf_file = tempfile.mkstemp(prefix='smolout',suffix='.o')
+        os.close(tmp_elf_file[0])
+        tmp_elf_file = tmp_elf_file[1]
+
     try:
         # if >1 input OR input is LTO object:
         if len(args.input) > 1 or has_lto_object(args.readelf, args.input):
@@ -185,21 +209,23 @@ def main():
                 error("could not find symbol: {}".format(symbol))
             libs_for_symbol = libs_symbol_map[symbol]
             if len(libs_for_symbol) > 1:
-                error("E: the symbol '" + symbol + "' is provided by more than one library: " + str(libs_for_symbol))
+                error("E: the symbol '%s' is provided by more than one library: %s"
+                      % (symbol, str(libs_for_symbol)))
             library = libs_for_symbol.pop()
             symbols.setdefault(library, [])
             symbols[library].append((symbol, reloc))
 
-        with os.fdopen(tmp_asm_fd, mode='w') as taf:
+        with (open(args.output,'w') if args.gen_rt_only
+                                    else os.fdopen(tmp_asm_fd, mode='w')) as taf:
             output(arch, symbols, args.nx, get_hash_id(args.hash16, args.crc32c), taf, args.det)
             if args.verbose:
                 eprintf("wrote symtab to %s" % tmp_asm_file)
 
-        # assemble hash table/ELF header
-        nasm_assemble_elfhdr(args.verbose, args.nasm, arch, args.smolrt,
-                             tmp_asm_file, tmp_elf_file, args.asflags)
-
         if not args.gen_rt_only:
+            # assemble hash table/ELF header
+            nasm_assemble_elfhdr(args.verbose, args.nasm, arch, args.smolrt,
+                                 tmp_asm_file, tmp_elf_file, args.asflags)
+
             # link with LD into the final executable, w/ special linker script
             ld_link_final(args.verbose, args.cc, arch, args.smolld, [objinput, tmp_elf_file],
                           args.output, args.ldflags, False)

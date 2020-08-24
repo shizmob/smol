@@ -153,10 +153,12 @@ def main():
                         "Get the address of the symbol hash table from the "+\
                         "linker map output instead of attempting to parse the"+\
                         " binary.")
-    parser.add_argument('-s', '--hash16', default=False, action='store_true', \
+
+    hashgrp = parser.add_mutually_exclusive_group()
+    hashgrp.add_argument('-s', '--hash16', default=False, action='store_true', \
         help="Use 16-bit (BSD2) hashes instead of 32-bit djb2 hashes. "+\
              "Implies -fuse-dnload-loader. Only usable for 32-bit output.")
-    parser.add_argument('-c', '--crc32c', default=False, action='store_true', \
+    hashgrp.add_argument('-c', '--crc32c', default=False, action='store_true', \
         help="Use Intel's crc32 intrinsic for hashing. "+\
              "Implies -fuse-dnload-loader. Conflicts with `--hash16'.")
     args = parser.parse_args()
