@@ -24,8 +24,11 @@ def main():
         help="directories to search libraries in")
 
     parser.add_argument('-s', '--hash16', default=False, action='store_true', \
-        help="Use 16-bit (BSD) hashes instead of 32-bit djb2 hashes. "+\
-             "Implies -fuse-dnload-loader")
+        help="Use 16-bit (BSD2) hashes instead of 32-bit djb2 hashes. "+\
+             "Implies -fuse-dnload-loader. Only usable for 32-bit output.")
+    parser.add_argument('-c', '--crc32c', default=False, action='store_true', \
+        help="Use Intel's crc32 intrinsic for hashing. "+\
+             "Implies -fuse-dnload-loader. Conflicts with `--hash16'.")
     parser.add_argument('-n', '--nx', default=False, action='store_true', \
         help="Use NX (i.e. don't use RWE pages). Costs the size of one phdr, "+\
              "plus some extra bytes on i386.")
@@ -116,7 +119,10 @@ def main():
 
     args = parser.parse_args()
 
-    if args.hash16:
+    if args.hash16 and args.crc32c:
+        error("Cannot combine --hash16 and --crc32c!")
+
+    if args.hash16 or args.crc32c:
         args.fuse_dnload_loader = True
 
     if args.fskip_zero_value: args.asflags.insert(0, "-DSKIP_ZERO_VALUE")
@@ -142,6 +148,9 @@ def main():
     if arch not in archmagic:
         error("Unknown/unsupported architecture '%s'" % str(arch))
     if args.verbose: eprintf("arch: %s" % str(arch))
+
+    if args.hash16 and arch not in ('i386', 3):
+        error("Cannot use --hash16 for arch `%s' (not i386)" % (arch))
 
     objinput = None
     objinputistemp = False
@@ -182,7 +191,7 @@ def main():
             symbols[library].append((symbol, reloc))
 
         with os.fdopen(tmp_asm_fd, mode='w') as taf:
-            output(arch, symbols, args.nx, args.hash16, taf, args.det)
+            output(arch, symbols, args.nx, get_hash_id(args.hash16, args.crc32c), taf, args.det)
             if args.verbose:
                 eprintf("wrote symtab to %s" % tmp_asm_file)
 

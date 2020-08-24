@@ -1,4 +1,4 @@
-; vim: set ft=nasm:
+; vim: set ft=nasm et:
 
 %ifndef HASH_END_TYP
 %warning "W: HASH_END_TYP not defined, falling back to 16-bit!"
@@ -101,6 +101,8 @@ _smol_start:
             mov esi, dword [rdx + ST_NAME_OFF]
             add rsi, r8;9
 
+%ifndef USE_CRC32C_HASH
+                ; djb2
             xor ecx, ecx
            push 33
            push 5381
@@ -108,22 +110,44 @@ _smol_start:
 ;           pop rcx
             pop rax
             pop rbx
+%else
+                ; crc32
+           xor ecx, ecx
+%endif
         .nexthashiter:
+%ifndef USE_CRC32C_HASH
+                    ; djb2
                     ; TODO: optimize register usage a bit more
                xchg eax, ecx
+%endif
               lodsb
                  or al, al
+%ifndef USE_CRC32C_HASH
+                    ; djb2
                xchg eax, ecx
+%endif
                  jz short .breakhash
 
+%ifndef USE_CRC32C_HASH
+                    ; djb2
                push rdx
                 mul ebx
                 pop rdx
                 add eax, ecx
+%else
+                    ; crc32c
+              crc32 ecx, al
+%endif
                 jmp short .nexthashiter
         .breakhash:
-
+%ifdef USE_CRC32C_HASH
+                ; crc32c
+            cmp r14d, ecx
+%else
+                ; djb2
             cmp r14d, eax
+
+%endif
              je short .hasheq
 
             add rdx, SYMTAB_SIZE
@@ -144,7 +168,7 @@ _smol_start:
 %ifdef IFUNC_SUPPORT
             and cl, ST_INFO__STT_MASK
             cmp cl, STT_GNU_IFUNC
-%ifdef SKIP_ZERO_VALUE
+    %ifdef SKIP_ZERO_VALUE
             jne short .no_ifunc2
            push rdi
            push r11
@@ -152,25 +176,25 @@ _smol_start:
             pop r11
             pop rdi
         .no_ifunc2:
-%else           ; !SKIP_ZERO_VALUE
+    %else       ; !SKIP_ZERO_VALUE
              je short .ifunc
         .no_ifunc:
-%endif
+    %endif
 %endif
           stosq
             cmp HASH_END_TYP [rdi], 0
 %ifdef IFUNC_SUPPORT
-%ifdef SKIP_ZERO_VALUE
+    %ifdef SKIP_ZERO_VALUE
             jne .next_hash;short .next_hash
-%else           ; IFUNC_SUPPORT && !SKIP_ZERO_VALUE
+    %else       ; IFUNC_SUPPORT && !SKIP_ZERO_VALUE
             jne short .next_hash
-%endif
+    %endif
 %else           ; !IFUNC_SUPPORT
             jne short .next_hash
 %endif
 
 %ifdef IFUNC_SUPPORT
-%ifndef SKIP_ZERO_VALUE
+    %ifndef SKIP_ZERO_VALUE
             jmp short .break_loop
         .ifunc:
          ;;int3 ; in this call, we lose rax rcx rdx rsi rdi r8 r9 r10 r11
@@ -194,7 +218,7 @@ _smol_start:
            ;pop rcx
             jmp short .no_ifunc
         .break_loop:
-%endif
+    %endif
 %endif
 
 ; if USE_DNLOAD_LOADER

@@ -36,10 +36,11 @@ def find_libs(deflibs, libname):
     for d in dirs:
         for f in glob.glob(glob.escape(d + '/' + libname) + '*'): yield f
 
-def build_hashtab(readelf_bin, lib):
+def build_hashtab(readelf_bin, lib, hashid):
     symbols = list_symbols(readelf_bin, lib)
 
-    return { hash_djb2(symbol):symbol for symbol in symbols }
+    hashfn = get_hash_fn(hashid)
+    return { hashfn(symbol):symbol for symbol in symbols }
 
 def addr2off(elf, addr):
     for x in elf.phdrs:
@@ -144,6 +145,12 @@ def main():
                         "Get the address of the symbol hash table from the "+\
                         "linker map output instead of attempting to parse the"+\
                         " binary.")
+    parser.add_argument('-s', '--hash16', default=False, action='store_true', \
+        help="Use 16-bit (BSD2) hashes instead of 32-bit djb2 hashes. "+\
+             "Implies -fuse-dnload-loader. Only usable for 32-bit output.")
+    parser.add_argument('-c', '--crc32c', default=False, action='store_true', \
+        help="Use Intel's crc32 intrinsic for hashing. "+\
+             "Implies -fuse-dnload-loader. Conflicts with `--hash16'.")
     args = parser.parse_args()
 
     blob = args.input.read()
@@ -155,7 +162,8 @@ def main():
 
     htbl = get_hashtbl(elf, blob, args)
 
-    libhashes = dict((l, build_hashtab(args.readelf, neededpaths[l])) for l in needed)
+    hashid = get_hash_id(args.hash16, args.crc32c)
+    libhashes = dict((l, build_hashtab(args.readelf, neededpaths[l], hashid)) for l in needed)
 
     hashresolves = dict({})
     noresolves   = []
