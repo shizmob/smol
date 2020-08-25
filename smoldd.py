@@ -209,5 +209,5 @@ if __name__ == '__main__':
     if rv is None: pass
     else:
         try: sys.exit(int(rv))
-        except: sys.exit(1)
+        except Exception: sys.exit(1)
 

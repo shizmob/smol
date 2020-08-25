@@ -120,11 +120,11 @@ def do_smol_run(args, arch):
                                  tmp_asm_file, tmp_elf_file, args.asflags)
 
             # link with LD into the final executable, w/ special linker script
-            ld_link_final(args.verbose, args.cc, arch, args.smolld, [objinput, tmp_elf_file],
-                          args.output, args.ldflags, False)
-            if args.debugout is not None:
+            if args.debugout is not None: # do this first, so the linker map output will use the final output binary
                 ld_link_final(args.verbose, args.cc, arch, args.smolld, [objinput, tmp_elf_file],
                               args.debugout, args.ldflags, True)
+            ld_link_final(args.verbose, args.cc, arch, args.smolld, [objinput, tmp_elf_file],
+                          args.output, args.ldflags, False)
     finally:
         if not args.keeptmp:
             if objinputistemp: os.remove(objinput)

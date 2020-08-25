@@ -10,13 +10,16 @@ def get_min_check_width(libraries, hashfn):
     minv = 8 # can't go lower
     for k, v in libraries.items():
         for sym in v:
-            hv = hashfn(sym[0]) # sym == (name, reloc)
+            hv = hashfn(sym)
+            #eprintf("hash: 0x%08x of %s"%(hv,sym))
             if (hv & 0xffffffff) == 0:
                 # this should (hopefully) NEVER happen
-                error("Aiee, all-zero hash for sym '%s'!" % sym)
+                error("E: Aiee, all-zero hash for sym '%s'!" % sym)
             elif (hv & 0xFFFF) == 0:
+                #eprintf("32-bit hash")
                 minv = max(minv, 32) # need at least 32 bits
             elif (hv & 0xFF) == 0:
+                #eprintf("16-bit hash")
                 minv = max(minv, 16) # need at least 16 bits
 
     return minv

@@ -277,30 +277,36 @@ def build_symbol_map(readelf_bin, libraries) -> Dict[str, Dict[str, ExportSym]]:
 
 
 # this ordening is specific to ONE symbol!
-def build_preferred_lib_order(sym, libs: Dict[str, ExportSym]) -> List[Tuple[str, ExportSym]]:
+def build_preferred_lib_order(sym, libs: Dict[str, ExportSym]) -> List[str]:
     # libs: lib -> syminfo
-    realdefs    = [(k, v) for k, v in libs.items() if v.scope != "WEAK" and v.ndx != "UND"]
-    weakdefs    = [(k, v) for k, v in libs.items() if v.scope == "WEAK" and v.ndx != "UND"]
-    weakunddefs = [(k, v) for k, v in libs.items() if v.scope == "WEAK" and v.ndx == "UND"]
-    unddefs     = [(k, v) for k, v in libs.items() if v.scope != "WEAK" and v.ndx == "UND"]
+    realdefs    = [lib for lib, v in libs.items() if v.scope != "WEAK" and v.ndx != "UND"]
+    weakdefs    = [lib for lib, v in libs.items() if v.scope == "WEAK" and v.ndx != "UND"]
+    weakunddefs = [lib for lib, v in libs.items() if v.scope == "WEAK" and v.ndx == "UND"]
+    unddefs     = [lib for lib, v in libs.items() if v.scope != "WEAK" and v.ndx == "UND"]
 
-    #assert len(realdefs) + len(weakdefs) + len(weakunddefs) == len(libs)
+    #ks = [v.name for k, v in libs.items()]
+    #print("k=",ks)
+    #assert all(k == ks[0] for k in ks)
 
-    if len(realdefs) > 1 or (len(realdefs) == 0 and len(weakdefs) > 1):
+    if len(realdefs) > 1: #or (len(realdefs) == 0 and len(weakdefs) > 1):
         error("E: symbol '%s' defined non-weakly in multiple libraries! (%s)"
-              % (sym, ', '.join(libs.keys())))
+              % (sym, ', '.join(realdefs)))
+
+    if len(realdefs) == 0 and len(weakdefs) > 1:
+        eprintf("W: symbol '%s' defined amibguously weakly in multiple libraries! Will pick a random one... (%s)"
+              % (sym, ', '.join(weakdefs)))
     if len(realdefs) == 0 and len(weakdefs) == 0: # must be in weakunddefs or unddefs
         error("E: no default weak implementation found for symbol '%s'" % sym)
 
-    return realdefs + weakdefs + weakunddefs #+ unddefs
+    return realdefs + weakdefs + weakunddefs + unddefs
 
 def has_good_subordening(needles, haystack):
     haylist = [x[0] for x in haystack]
     prevind = 0
-    for k, _ in needles:
+    for lib in needles:
         curind = None
         try:
-            curind = haylist.index(k)
+            curind = haylist.index(lib)
         except ValueError: # not in haystack --> eh, let's ignore
             continue
 
@@ -310,29 +316,47 @@ def has_good_subordening(needles, haystack):
     return True
 
 def add_with_ordening(haystack: List[Tuple[str, Dict[str, str]]], # [(libname, (symname -> reloctyp))]
-                      needles: List[Tuple[str, ExportSym]], # [(lib, syminfo)]
-                      sym: str, reloc: str) \
+                      needles: List[str], # [lib]
+                      sym: str, reloc: str, last=False) \
                    -> List[Tuple[str, Dict[str, str]]]:
     haylist = [x[0] for x in haystack]
-    startind = 0
-    for k, v in needles:
+    startind = None if last else 0
+    ii = 0
+    for lib in needles:
         #eprintf("k=",k,"v=",v)
         try:
-            newind = haylist.index(k)
-            assert newind >= startind, "???? (%d <= %d)" % (newind, startind)
+            newind = haylist.index(lib)
+            #eprintf("lib=%s newind=%d" % (lib, newind))
+            #assert newind >= startind, "???? (%d <= %d)" % (newind, startind)
             startind = newind
 
-            symrelocdict = haystack[startind][1]
-            if v.name in symrelocdict:
-                assert False, "?????"
-            haystack[startind][1][v.name] = reloc
+            if ii == 0:
+                symrelocdict = haystack[startind][1]
+                assert not(sym in symrelocdict), "?????"
+                haystack[startind][1][sym] = reloc
         except ValueError: # not in haystack --> add!
-            startind = startind + 1
-            haystack.insert(startind, (k, {v.name:reloc}))
-            haylist.insert(startind, k)
+            if startind is None:
+                startind = len(haystack)
+            if not last:
+                startind = startind + 1
+            #eprintf("lib=%s NEWind=%d" % (lib, startind))
+            dv = {sym: reloc} if ii == 0 else {}
+            haystack.insert(startind, (lib, dv))
+            haylist.insert(startind, lib)
+            if last:
+                startind = startind + 1
+        ii = ii + 1
 
     return haystack
 
+def visable(ll):
+    rr = []
+    for k, v in ll:
+        if isinstance(v, ExportSym):
+            rr.append((k, v)) # v.name
+        else:
+            rr.append((k, v.keys()))
+    return rr
 def resolve_extern_symbols(needed: Dict[str, List[str]], # symname -> reloctyps
                            available: Dict[str, Dict[str, ExportSym]], # symname -> (lib -> syminfo)
                            args) \
@@ -351,7 +375,7 @@ def resolve_extern_symbols(needed: Dict[str, List[str]], # symname -> reloctyps
     if args.det:
         bound = sorted(bound, key=lambda kv: (len(kv[0]), kv[0]))
 
-    #eprintf("bound", bound)
+    #eprintf("bound", bound,"\n")
 
     liborder = [] # [(libname, (symname -> reloctyp))]
     for k, v in bound: # k: sym (str)
@@ -360,7 +384,8 @@ def resolve_extern_symbols(needed: Dict[str, List[str]], # symname -> reloctyps
         reloc, libs = v[0], v[1]
         if len(libs) <= 1:
             continue
-        # preferred: [(lib, syminfo)]
+        # preferred: [lib]
+        #eprintf("libs",visable(libs.items()))
         preferred = build_preferred_lib_order(k, libs)
         #eprintf("preferred",preferred)
         if not has_good_subordening(preferred, liborder):
@@ -372,10 +397,10 @@ def resolve_extern_symbols(needed: Dict[str, List[str]], # symname -> reloctyps
                 message = "W: unreconcilable library ordenings '%s' and '%s' "+\
                     "for symbol '%s', you might want to enable `-fskip-zero-value'."
             if message is not None:
-                eprintf(message % (', '.join(liborder.keys()), ', '.join(preferred.keys()), k))
+                #eprintf(message % (', '.join(liborder.keys()), ', '.join(preferred.keys()), k))
 
         liborder = add_with_ordening(liborder, preferred, k, reloc)
-        #eprintf("new order",liborder)
+        #eprintf("new order",visable(liborder),"\n")
 
     # add all those left without any possible preferred ordening
     for k, v in bound:
@@ -385,9 +410,10 @@ def resolve_extern_symbols(needed: Dict[str, List[str]], # symname -> reloctyps
         if len(libs) != 1:
             continue
         lib = libs.popitem() # (lib, syminfo)
-        liborder = add_with_ordening(liborder, [lib], k, reloc)
-        #eprintf("new order (no preference)",liborder)
+        #eprintf("lib",lib)
+        liborder = add_with_ordening(liborder, [lib[0]], k, reloc, True)
+        #eprintf("new order (no preference)",visable(liborder),"\n")
 
-    #eprintf("ordered", liborder)
+    #eprintf("ordered", visable(liborder))
     return OrderedDict(liborder)
 
