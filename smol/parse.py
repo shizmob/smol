@@ -397,7 +397,7 @@ def resolve_extern_symbols(needed: Dict[str, List[str]], # symname -> reloctyps
                 message = "W: unreconcilable library ordenings '%s' and '%s' "+\
                     "for symbol '%s', you might want to enable `-fskip-zero-value'."
             if message is not None:
-                #eprintf(message % (', '.join(liborder.keys()), ', '.join(preferred.keys()), k))
+                eprintf(message % (', '.join(liborder.keys()), ', '.join(preferred.keys()), k))
 
         liborder = add_with_ordening(liborder, preferred, k, reloc)
         #eprintf("new order",visable(liborder),"\n")

@@ -2,8 +2,8 @@
 
 Shoddy minsize-oriented linker
 
-PoC by Shiz, bugfixing, 64-bit version and maintenance by PoroCYon,
-enhancements and bugfixes by blackle.
+PoC and maintenance by Shiz, bugfixing, 64-bit version and maintenance by
+PoroCYon, enhancements and bugfixes by blackle.
 
 ## Dependencies
 
