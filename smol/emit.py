@@ -41,9 +41,8 @@ def sort_imports(libraries, hashfn):
     #if sys.version_info < (3, 6): return OrderedDict(ll)
     #else: return dict(ll)
 
-    ll = libraries.items()
-    for k, v in ll:
-        libraries[k] = sorted(v, key=lambda sr: hashfn(sr[0]))
+    for k, v in libraries.items():
+        libraries[k] = OrderedDict(sorted(v.items(), key=lambda sr: hashfn(sr[0])))
 
     return libraries
 
