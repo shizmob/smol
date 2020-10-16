@@ -27,6 +27,17 @@ class XRef(NamedTuple):
     name: str
     deff: str
     reff: Sequence[str]
+class ImpObj(NamedTuple):
+    ar: str
+    obj: str
+class ImpRsnObj(NamedTuple):
+    sym: str
+    obj: ImpObj
+class ImpRsnSym(NamedTuple):
+    sym: str
+class ArImp(NamedTuple):
+    impobj: ImpObj
+    reason: Union[ImpRsnSym, ImpRsnObj]
 
 class LinkMap(NamedTuple):
     common : Sequence[CommonSym]
@@ -34,11 +45,13 @@ class LinkMap(NamedTuple):
     memcfg : Sequence[MemCfg]
     mmap   : Sequence[MMap]
     xref   : Sequence[XRef]
+    arimp  : Sequence[ArImp]
 
 def parse_common( ls: Sequence[str]) -> Sequence[CommonSym]: return [] # TODO
 def parse_discard(ls: Sequence[str]) -> Sequence[Discard  ]: return [] # TODO
 def parse_memcfg( ls: Sequence[str]) -> Sequence[MemCfg   ]: return [] # TODO
 def parse_xref(   ls: Sequence[str]) -> Sequence[XRef     ]: return [] # TODO
+def parse_arimp(  ls: Sequence[str]) -> Sequence[ArImp    ]: return [] # TODO
 
 def parse_mmap(ls: Sequence[str]) -> Sequence[MMap]:
     rrr = []
@@ -55,7 +68,9 @@ def parse_mmap(ls: Sequence[str]) -> Sequence[MMap]:
         #print(repr(l))
         s = l.strip(); w = s.split()
 
-        if s.startswith('LOAD ') or s.startswith('OUTPUT('): continue#break
+        if s.startswith('LOAD ') or s.startswith('OUTPUT(') or \
+           s.startswith('START GROUP') or s.startswith('END GROUP'):
+            continue#break
 
         if l[0] != ' ':
             bigsect = w[0]
@@ -68,7 +83,7 @@ def parse_mmap(ls: Sequence[str]) -> Sequence[MMap]:
             continue # addr placed on next line for prettyprinting reasons
 
         #print(repr(l), w[0])
-        assert w[0].startswith("0x"), "welp, bad symbol addr"
+        assert w[0].startswith("0x"), "welp, bad symbol addr %s"%w[0]
 
         addr = int(w[0], 16)
 
@@ -90,10 +105,11 @@ def parse(s: str) -> LinkMap:
     MEMCFG  = 2
     MMAP    = 3
     XREF    = 4
+    ARIMP   = 5
 
     curpt = -1
 
-    commonl, discardl, memcfgl, mmapl, xrefl = [], [], [], [], []
+    commonl, discardl, memcfgl, mmapl, xrefl, arimpl = [], [], [], [], [], []
 
     for l in s.split('\n'):
         if len(l.strip()) == 0: continue
@@ -103,15 +119,18 @@ def parse(s: str) -> LinkMap:
         elif ls == "Discarded input sections": curpt = DISCARD
         elif ls == "Memory Configuration": curpt = MEMCFG
         elif ls == "Linker script and memory map": curpt = MMAP
-        elif ls == 'Cross Reference Table': curpt = XREF
+        elif ls == "Cross Reference Table": curpt = XREF
+        elif ls == "Archive member included to satisfy reference by file (symbol)": curpt = ARIMP
         elif curpt == COMMON :  commonl.append(l)
         elif curpt == DISCARD: discardl.append(l)
         elif curpt == MEMCFG :  memcfgl.append(l)
         elif curpt == MMAP   :    mmapl.append(l)
         elif curpt == XREF   :    xrefl.append(l)
+        elif curpt == ARIMP  :   arimpl.append(l)
         else:
             assert False, "bad line %s" % ls
 
-    return LinkMap(parse_common(commonl), parse_discard(discardl), \
-                   parse_memcfg(memcfgl), parse_mmap(mmapl), parse_xref(xrefl))
+    return LinkMap(parse_common(commonl), parse_discard(discardl),
+                   parse_memcfg(memcfgl), parse_mmap(mmapl), parse_xref(xrefl),
+                   parse_arimp(arimpl))
 
