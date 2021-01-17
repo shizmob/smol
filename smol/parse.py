@@ -149,11 +149,16 @@ def get_needed_syms(readelf_bin, inpfile) -> Dict[str, str]: # (symname, relocty
     return syms#, needgot
 
 
+def uniq_list(l):
+    od = OrderedDict()
+    for x in l: od[x] = x
+    return list(od.keys())
+
 def format_cc_path_line(entry):
     category, path = entry.split(': ', 1)
     path = path.lstrip('=')
-    return (category, list(set(os.path.realpath(p) \
-        for p in path.split(':') if os.path.isdir(p))))
+    return (category, uniq_list(os.path.realpath(p) \
+        for p in path.split(':') if os.path.isdir(p))[::-1])
 
 
 def get_cc_paths(cc_bin):
